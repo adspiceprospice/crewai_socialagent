@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}CrewAI Social Media Agent{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     {% block head %}{% endblock %}
 </head>
@@ -28,6 +29,7 @@
                         <a href="{{ url_for('main.post_content_route') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Post Content</a>
                         <a href="{{ url_for('main.check_engagement_route') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Check Engagement</a>
                         <a href="{{ url_for('main.respond_comments_route') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Respond to Comments</a>
+                        <a href="{{ url_for('main.manual_check_comments') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Check Comments</a>
                     </div>
                 </div>
                 <div class="hidden md:flex space-x-4">
@@ -64,9 +66,23 @@
                 <div class="mb-4 md:mb-0">
                     <p>&copy; 2025 Curiousity AI</p>
                 </div>
-                <div class="flex space-x-4">
-                    <a href="{{ url_for('main.run_scheduler') }}" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">Run Scheduler</a>
-                    <a href="{{ url_for('main.run_monitor') }}" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">Run Monitor</a>
+                <div class="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-4">
+                    <div class="flex space-x-2">
+                        <a href="{{ url_for('main.run_scheduler') }}" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">
+                            <i class="fas fa-calendar-alt mr-2"></i> Run Scheduler
+                        </a>
+                        <a href="{{ url_for('main.stop_scheduler') }}" class="px-4 py-2 bg-red-600 rounded hover:bg-red-700">
+                            <i class="fas fa-stop mr-2"></i> Stop Scheduler
+                        </a>
+                    </div>
+                    <div class="flex space-x-2">
+                        <a href="{{ url_for('main.run_monitor') }}" class="px-4 py-2 bg-green-600 rounded hover:bg-green-700">
+                            <i class="fas fa-comments mr-2"></i> Run Monitor
+                        </a>
+                        <a href="{{ url_for('main.stop_monitor') }}" class="px-4 py-2 bg-red-600 rounded hover:bg-red-700">
+                            <i class="fas fa-stop mr-2"></i> Stop Monitor
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
