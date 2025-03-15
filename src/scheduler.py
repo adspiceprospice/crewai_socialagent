@@ -163,7 +163,12 @@ class PostScheduler:
                                 # Update the post status
                                 post["status"] = "published"
                                 post["published_at"] = datetime.datetime.now().isoformat()
-                                post["platform_post_id"] = result.get("post_id") or result.get("tweet_id")
+                                
+                                # Handle different key names from different platforms
+                                if result.get("post_id"):
+                                    post["platform_post_id"] = result.get("post_id")
+                                elif result.get("tweet_id"):
+                                    post["platform_post_id"] = result.get("tweet_id")
                                 
                                 # Save the updated schedule
                                 self._save_schedule(schedule)
@@ -208,4 +213,4 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error(f"Unhandled exception in scheduler: {str(e)}")
         # Sleep before exiting to prevent rapid restarts
-        time.sleep(60) 
+        time.sleep(60)
