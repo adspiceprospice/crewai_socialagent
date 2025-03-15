@@ -17,7 +17,9 @@ REDIRECT_URI = "http://localhost:8000/callback"
 
 # Required scopes for LinkedIn API
 SCOPES = [
-    "w_member_social"
+    "w_member_social",
+    "w_organization_social",
+    "r_organization_social"
 ]
 
 # Global variable to store the authorization code
