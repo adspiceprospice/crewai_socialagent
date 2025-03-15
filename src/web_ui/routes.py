@@ -1,7 +1,11 @@
 from flask import Blueprint, request, jsonify, render_template, flash, redirect, url_for, session
 from src.agents.social_media_agent import SocialMediaAgent
+from src.tools.scheduler_tool import SchedulerTool
 from langchain_openai import ChatOpenAI
 import os
+import subprocess
+import signal
+import threading
 from datetime import datetime
 import logging
 import json
@@ -24,10 +28,12 @@ try:
         api_key=os.getenv('OPENAI_API_KEY')
     )
     agent = SocialMediaAgent(llm=llm)
+    scheduler_tool = SchedulerTool()
     logger.info("SocialMediaAgent initialized in routes.py")
 except Exception as e:
     logger.error(f"Error initializing agent in routes.py: {str(e)}")
     agent = None
+    scheduler_tool = None
 
 @main.route('/')
 def index():
@@ -199,6 +205,101 @@ def schedule_all_content():
         logger.error(f"API error in schedule_all_content: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
+@bp.route('/publish-now', methods=['POST'])
+def publish_now():
+    """API endpoint to publish a scheduled post immediately."""
+    try:
+        data = request.json
+        
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        post_id = data.get('post_id')
+        
+        if not post_id:
+            return jsonify({"error": "Missing post ID"}), 400
+        
+        # Get the scheduled post
+        if scheduler_tool:
+            # Get all scheduled posts
+            all_posts = scheduler_tool.get_scheduled_posts()
+            
+            if all_posts.get('success', False):
+                # Find the post with the given ID
+                post_to_publish = None
+                for post in all_posts.get('scheduled_posts', []):
+                    if post.get('id') == post_id:
+                        post_to_publish = post
+                        break
+                
+                if post_to_publish:
+                    # Publish the post immediately
+                    result = agent.post_content(
+                        content=post_to_publish.get('content'),
+                        platform=post_to_publish.get('platform'),
+                        image_path=post_to_publish.get('image_path')
+                    )
+                    
+                    if result.get('success', False):
+                        # Remove the post from the schedule
+                        scheduler_tool.cancel_scheduled_post(post_id)
+                        
+                        return jsonify({
+                            "success": True, 
+                            "result": {
+                                "message": f"Post {post_id} published successfully",
+                                "post_result": result
+                            }
+                        })
+                    else:
+                        return jsonify({
+                            "success": False,
+                            "error": f"Error publishing post: {result.get('error', 'Unknown error')}"
+                        })
+                else:
+                    return jsonify({"error": f"Post with ID {post_id} not found"}), 404
+            else:
+                return jsonify({"error": "Error getting scheduled posts"}), 500
+        else:
+            return jsonify({"error": "Scheduler tool not available"}), 500
+    except Exception as e:
+        logger.error(f"API error in publish_now: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@bp.route('/cancel-scheduled-post', methods=['POST'])
+def cancel_scheduled_post():
+    """API endpoint to cancel a scheduled post."""
+    try:
+        data = request.json
+        
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        post_id = data.get('post_id')
+        
+        if not post_id:
+            return jsonify({"error": "Missing post ID"}), 400
+        
+        # Cancel the scheduled post
+        if scheduler_tool:
+            result = scheduler_tool.cancel_scheduled_post(post_id)
+            
+            if result.get('success', False):
+                return jsonify({
+                    "success": True, 
+                    "result": result
+                })
+            else:
+                return jsonify({
+                    "success": False,
+                    "error": result.get('error', 'Unknown error')
+                })
+        else:
+            return jsonify({"error": "Scheduler tool not available"}), 500
+    except Exception as e:
+        logger.error(f"API error in cancel_scheduled_post: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 @bp.route('/generate-content', methods=['POST'])
 def generate_content():
     """API endpoint to generate content."""
@@ -287,6 +388,15 @@ def image_generation():
 def schedule_content_route():
     """Render the content scheduling page and handle form submission."""
     result = None
+    scheduled_posts = []
+    
+    # Get all scheduled posts
+    if scheduler_tool:
+        posts_result = scheduler_tool.get_scheduled_posts()
+        if posts_result.get('success', False):
+            scheduled_posts = posts_result.get('scheduled_posts', [])
+            # Sort by schedule time
+            scheduled_posts.sort(key=lambda x: x.get('schedule_time', ''))
     
     if request.method == 'POST':
         try:
@@ -314,12 +424,21 @@ def schedule_content_route():
                     schedule_time=schedule_datetime,
                     image_path=image_path
                 )
+                
+                # Refresh the scheduled posts list
+                if scheduler_tool:
+                    posts_result = scheduler_tool.get_scheduled_posts()
+                    if posts_result.get('success', False):
+                        scheduled_posts = posts_result.get('scheduled_posts', [])
+                        # Sort by schedule time
+                        scheduled_posts.sort(key=lambda x: x.get('schedule_time', ''))
+                
                 flash('Content scheduled successfully!', 'success')
         except Exception as e:
             logger.error(f"Error in schedule content route: {str(e)}")
             flash(f'Error scheduling content: {str(e)}', 'danger')
     
-    return render_template('schedule_content.html', result=result)
+    return render_template('schedule_content.html', result=result, scheduled_posts=scheduled_posts)
 
 @main.route('/post-content', methods=['GET', 'POST'])
 def post_content_route():
@@ -410,18 +529,114 @@ def respond_comments_route():
     
     return render_template('respond_comments.html', result=result)
 
+# Scheduler process
+scheduler_process = None
+
 @main.route('/run-scheduler')
 def run_scheduler():
     """Endpoint to manually trigger the scheduler."""
-    try:
-        # Here we would typically trigger the scheduler to run
-        # For now, we'll just show a message
-        flash('Scheduler triggered successfully!', 'success')
-    except Exception as e:
-        logger.error(f"Error triggering scheduler: {str(e)}")
-        flash(f'Error triggering scheduler: {str(e)}', 'danger')
+    global scheduler_process
     
-    return redirect(url_for('main.index'))
+    try:
+        if scheduler_process is None or scheduler_process.poll() is not None:
+            # Start the scheduler process
+            scheduler_process = subprocess.Popen(
+                ["python", "-m", "src.scheduler"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            flash('Scheduler started successfully!', 'success')
+        else:
+            flash('Scheduler is already running', 'info')
+    except Exception as e:
+        logger.error(f"Error starting scheduler: {str(e)}")
+        flash(f'Error starting scheduler: {str(e)}', 'danger')
+    
+    return redirect(url_for('main.schedule_content_route'))
+
+@main.route('/stop-scheduler')
+def stop_scheduler():
+    """Endpoint to stop the scheduler."""
+    global scheduler_process
+    
+    try:
+        if scheduler_process is not None and scheduler_process.poll() is None:
+            # Terminate the scheduler process
+            scheduler_process.terminate()
+            scheduler_process.wait(timeout=5)
+            scheduler_process = None
+            flash('Scheduler stopped successfully!', 'success')
+        else:
+            flash('Scheduler is not running', 'info')
+    except Exception as e:
+        logger.error(f"Error stopping scheduler: {str(e)}")
+        flash(f'Error stopping scheduler: {str(e)}', 'danger')
+    
+    return redirect(url_for('main.schedule_content_route'))
+
+@main.route('/publish-post/<post_id>')
+def publish_post(post_id):
+    """Endpoint to publish a scheduled post immediately."""
+    try:
+        # Get the scheduled post
+        if scheduler_tool:
+            # Get all scheduled posts
+            all_posts = scheduler_tool.get_scheduled_posts()
+            
+            if all_posts.get('success', False):
+                # Find the post with the given ID
+                post_to_publish = None
+                for post in all_posts.get('scheduled_posts', []):
+                    if post.get('id') == post_id:
+                        post_to_publish = post
+                        break
+                
+                if post_to_publish:
+                    # Publish the post immediately
+                    result = agent.post_content(
+                        content=post_to_publish.get('content'),
+                        platform=post_to_publish.get('platform'),
+                        image_path=post_to_publish.get('image_path')
+                    )
+                    
+                    if result.get('success', False):
+                        # Remove the post from the schedule
+                        scheduler_tool.cancel_scheduled_post(post_id)
+                        flash('Post published successfully!', 'success')
+                    else:
+                        flash(f'Error publishing post: {result.get("error", "Unknown error")}', 'danger')
+                else:
+                    flash(f'Post with ID {post_id} not found', 'danger')
+            else:
+                flash('Error getting scheduled posts', 'danger')
+        else:
+            flash('Scheduler tool not available', 'danger')
+    except Exception as e:
+        logger.error(f"Error publishing post immediately: {str(e)}")
+        flash(f'Error publishing post: {str(e)}', 'danger')
+    
+    return redirect(url_for('main.schedule_content_route'))
+
+@main.route('/delete-post/<post_id>')
+def delete_post(post_id):
+    """Endpoint to delete a scheduled post."""
+    try:
+        # Cancel the scheduled post
+        if scheduler_tool:
+            result = scheduler_tool.cancel_scheduled_post(post_id)
+            
+            if result.get('success', False):
+                flash('Post deleted successfully!', 'success')
+            else:
+                flash(f'Error deleting post: {result.get("error", "Unknown error")}', 'danger')
+        else:
+            flash('Scheduler tool not available', 'danger')
+    except Exception as e:
+        logger.error(f"Error deleting post: {str(e)}")
+        flash(f'Error deleting post: {str(e)}', 'danger')
+    
+    return redirect(url_for('main.schedule_content_route'))
 
 @main.route('/run-monitor')
 def run_monitor():
