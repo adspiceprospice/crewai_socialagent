@@ -6,12 +6,13 @@ from src.tools.gemini_image_tool import GeminiImageTool
 from src.tools.linkedin_tool import LinkedInTool
 from src.tools.twitter_tool import TwitterTool
 from src.tools.scheduler_tool import SchedulerTool
-from datetime import datetime
+from datetime import datetime, timedelta
 from langchain_openai import ChatOpenAI
 from .content_strategy_agent import ContentStrategyAgent
 import os
 from openai import OpenAI
 import json
+import uuid
 
 # Configure logging
 logging.basicConfig(
@@ -302,6 +303,177 @@ class SocialMediaAgent:
                 "error": f"Error generating content: {str(e)}"
             }
 
+    def execute_content_plan(self, strategy: dict, time_period: str, content_count: int, platforms: list) -> dict:
+        """
+        Generate a comprehensive content plan based on a content strategy.
+        
+        Args:
+            strategy (dict): The content strategy to base the plan on
+            time_period (str): Time period to generate content for (e.g., '1 week', '1 month')
+            content_count (int): Number of content pieces to generate
+            platforms (list): Platforms to generate content for
+            
+        Returns:
+            dict: Generated content plan with scheduled items
+        """
+        logger.info(f"Executing content plan for {time_period}, {content_count} items")
+        try:
+            # Extract key information from the strategy
+            industry = strategy.get('target_audience_analysis', {}).get('demographics', {}).get('industry', 'Unknown')
+            audience = strategy.get('target_audience_analysis', {}).get('demographics', {}).get('roles', ['Unknown'])
+            if isinstance(audience, list):
+                audience = ', '.join(audience)
+            
+            content_themes = strategy.get('content_themes', [])
+            if isinstance(content_themes, list):
+                themes_str = '\n- ' + '\n- '.join(content_themes)
+            else:
+                themes_str = content_themes
+                
+            # Parse time period to determine date range
+            start_date = datetime.now()
+            
+            if time_period == '1 week':
+                end_date = start_date + timedelta(days=7)
+            elif time_period == '2 weeks':
+                end_date = start_date + timedelta(days=14)
+            elif time_period == '3 months':
+                end_date = start_date + timedelta(days=90)
+            else:  # Default to 1 month
+                end_date = start_date + timedelta(days=30)
+                
+            # Create a prompt for OpenAI to generate the content plan
+            prompt = f"""
+            Create a detailed content plan for a business in the {industry} industry targeting {audience}.
+            
+            The content plan should cover the period from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}.
+            
+            Generate {content_count} content pieces distributed appropriately across the following platforms: {', '.join(platforms)}.
+            
+            Content should be based on these themes:
+            {themes_str}
+            
+            For each content piece, provide:
+            1. Scheduled date and time (within the specified period)
+            2. Platform ({', '.join(platforms)})
+            3. Content type (post, article, thread, etc.)
+            4. Actual content (ready to post)
+            5. Relevant hashtags
+            
+            Format your response as a valid JSON object with the following structure:
+            {{
+                "plan_overview": {{
+                    "industry": "...",
+                    "start_date": "YYYY-MM-DD",
+                    "end_date": "YYYY-MM-DD",
+                    "platform_distribution": {{ "platform_name": count, ... }}
+                }},
+                "content_items": [
+                    {{
+                        "id": "unique_id",
+                        "scheduled_time": "YYYY-MM-DD HH:MM",
+                        "platform": "platform_name",
+                        "content_type": "content_type",
+                        "content": "full content text",
+                        "hashtags": ["tag1", "tag2", ...],
+                        "theme": "content theme"
+                    }},
+                    ...
+                ]
+            }}
+            
+            Ensure the content is engaging, relevant to the audience, and follows best practices for each platform.
+            Distribute the content evenly across the time period and consider optimal posting times for each platform.
+            Make each piece of content unique, creative, and directly usable without requiring further editing.
+            """
+            
+            # Use OpenAI client directly with JSON response format
+            logger.info("Creating content plan using OpenAI")
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are an expert social media content planner. Return your response in a structured JSON format."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=4000,
+                response_format={"type": "json_object"}
+            )
+            
+            # Extract the content from response and parse as JSON
+            result_text = response.choices[0].message.content
+            result_json = json.loads(result_text)
+            
+            # Ensure each item has a unique ID
+            for item in result_json.get('content_items', []):
+                if 'id' not in item or not item['id']:
+                    item['id'] = str(uuid.uuid4())
+            
+            logger.info(f"Content plan created successfully with {len(result_json.get('content_items', []))} items")
+            return result_json
+        except Exception as e:
+            logger.error(f"Error executing content plan: {str(e)}")
+            return {
+                "error": f"Error executing content plan: {str(e)}",
+                "content_items": []
+            }
+
+    def schedule_multiple_content(self, content_items: list) -> dict:
+        """
+        Schedule multiple content items at once.
+        
+        Args:
+            content_items (list): List of content items to schedule
+            
+        Returns:
+            dict: Results of scheduling operations
+        """
+        logger.info(f"Scheduling {len(content_items)} content items")
+        results = {
+            "success": [],
+            "failed": []
+        }
+        
+        try:
+            # Find the scheduler tool
+            scheduler_tool = next((tool for tool in self.tools if isinstance(tool, SchedulerTool)), None)
+            
+            if not scheduler_tool:
+                logger.error("Scheduler tool not found")
+                return {"error": "Scheduler tool not found"}
+            
+            # Schedule each content item
+            for item in content_items:
+                try:
+                    # Parse the scheduled time
+                    scheduled_time = datetime.fromisoformat(item.get("scheduled_time").replace(' ', 'T'))
+                    
+                    # Schedule the content
+                    result = scheduler_tool._run(
+                        content=item.get("content"),
+                        platform=item.get("platform"),
+                        schedule_time=scheduled_time.isoformat(),
+                        image_path=item.get("image_path")
+                    )
+                    
+                    # Add to results
+                    results["success"].append({
+                        "id": item.get("id"),
+                        "message": result
+                    })
+                    
+                except Exception as item_error:
+                    logger.error(f"Error scheduling content item {item.get('id')}: {str(item_error)}")
+                    results["failed"].append({
+                        "id": item.get("id"),
+                        "error": str(item_error)
+                    })
+            
+            return results
+        except Exception as e:
+            logger.error(f"Error scheduling multiple content: {str(e)}")
+            return {"error": f"Error scheduling multiple content: {str(e)}"}
+
     def schedule_content(self, content: str, platform: str, schedule_time: datetime, image_path: Optional[str] = None) -> dict:
         """
         Schedule content for posting.
@@ -480,4 +652,4 @@ class SocialMediaAgent:
             return responses
         except Exception as e:
             logger.error(f"Error responding to comments: {str(e)}")
-            return [{"error": f"Error responding to comments: {str(e)}"}] 
+            return [{"error": f"Error responding to comments: {str(e)}"}]
