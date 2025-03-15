@@ -36,9 +36,100 @@
         <h2 class="text-xl font-semibold text-gray-800 mb-4">Your Content Strategy</h2>
         
         <div class="bg-gray-50 p-6 rounded-md mb-6">
-            <div class="prose max-w-none">
-                {{ result|safe }}
-            </div>
+            {% if strategy_json %}
+                <div class="prose max-w-none">
+                    {% if strategy_json.executive_summary %}
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Executive Summary</h3>
+                        <p>{{ strategy_json.executive_summary }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if strategy_json.target_audience_analysis %}
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Target Audience Analysis</h3>
+                        <p>{{ strategy_json.target_audience_analysis }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if strategy_json.content_themes %}
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Content Themes</h3>
+                        <ul class="list-disc pl-5">
+                            {% for theme in strategy_json.content_themes %}
+                            <li>{{ theme }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    
+                    {% if strategy_json.content_types %}
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Content Types</h3>
+                        <ul class="list-disc pl-5">
+                            {% for type in strategy_json.content_types %}
+                            <li>{{ type }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    
+                    {% if strategy_json.platform_recommendations %}
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Platform Recommendations</h3>
+                        <ul class="list-disc pl-5">
+                            {% for platform in strategy_json.platform_recommendations %}
+                            <li>{{ platform }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    
+                    {% if strategy_json.posting_schedule %}
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Posting Schedule</h3>
+                        <p>{{ strategy_json.posting_schedule }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if strategy_json.engagement_strategies %}
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Engagement Strategies</h3>
+                        <ul class="list-disc pl-5">
+                            {% for strategy in strategy_json.engagement_strategies %}
+                            <li>{{ strategy }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    
+                    {% if strategy_json.success_metrics %}
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Success Metrics</h3>
+                        <ul class="list-disc pl-5">
+                            {% for metric in strategy_json.success_metrics %}
+                            <li>{{ metric }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    
+                    {% if strategy_json.action_plan %}
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">Action Plan</h3>
+                        <ol class="list-decimal pl-5">
+                            {% for action in strategy_json.action_plan %}
+                            <li>{{ action }}</li>
+                            {% endfor %}
+                        </ol>
+                    </div>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="prose max-w-none">
+                    {{ result|safe }}
+                </div>
+            {% endif %}
         </div>
         
         <div class="flex flex-wrap gap-4">
@@ -49,6 +140,13 @@
                 Generate Content
             </a>
             
+            <button id="downloadJson" class="inline-flex items-center px-4 py-2 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                <svg class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                </svg>
+                Download Strategy
+            </button>
+            
             <button onclick="window.print()" class="inline-flex items-center px-4 py-2 bg-gray-600 text-white font-semibold rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
                 <svg class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
@@ -57,6 +155,21 @@
             </button>
         </div>
     </div>
+    
+    {% if strategy_json %}
+    <script>
+        document.getElementById('downloadJson').addEventListener('click', function() {
+            const strategyData = {{ strategy_json|tojson }};
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(strategyData, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "content_strategy.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        });
+    </script>
+    {% endif %}
     {% endif %}
 </div>
 {% endblock %} 

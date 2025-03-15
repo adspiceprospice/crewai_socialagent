@@ -1,7 +1,7 @@
 import logging
 from crewai import Agent
 from crewai.tools import BaseTool
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from src.tools.gemini_image_tool import GeminiImageTool
 from src.tools.linkedin_tool import LinkedInTool
 from src.tools.twitter_tool import TwitterTool
@@ -11,6 +11,7 @@ from langchain_openai import ChatOpenAI
 from .content_strategy_agent import ContentStrategyAgent
 import os
 from openai import OpenAI
+import json
 
 # Configure logging
 logging.basicConfig(
@@ -94,9 +95,9 @@ class SocialMediaAgent:
             logger.error(f"Error during SocialMediaAgent initialization: {str(e)}")
             # Continue with partial initialization to prevent crashes
 
-    def create_content_strategy(self, industry: str, target_audience: str, goals: List[str]) -> str:
+    def create_content_strategy(self, industry: str, target_audience: str, goals: List[str]) -> Dict[str, Any]:
         """
-        Create a content strategy.
+        Create a structured content strategy.
         
         Args:
             industry (str): The industry or business domain
@@ -104,7 +105,7 @@ class SocialMediaAgent:
             goals (List[str]): List of goals to achieve with the content strategy
             
         Returns:
-            str: A detailed content strategy
+            Dict[str, Any]: A structured content strategy with sections
         """
         logger.info(f"Creating content strategy for {industry}, target audience: {target_audience}")
         try:
@@ -117,7 +118,7 @@ class SocialMediaAgent:
             
             goals_str = "\n- ".join(goals_list)
             
-            # Create a direct prompt for OpenAI
+            # Create a direct prompt for OpenAI that requests structured output
             prompt = f"""
             Create a comprehensive content strategy for:
             Industry: {industry}
@@ -125,39 +126,131 @@ class SocialMediaAgent:
             Goals:
             - {goals_str}
             
-            The strategy should include:
-            1. Content themes and topics
-            2. Content types and formats
-            3. Posting frequency and timing
-            4. Platform-specific recommendations
-            5. Engagement strategies
-            6. Success metrics and KPIs
+            Return your response in a structured JSON format with the following sections:
             
-            Please provide a detailed, actionable strategy that aligns with the industry, 
-            resonates with the target audience, and helps achieve the specified goals.
-            Format your response with clear section headers and bullet points for readability.
+            1. "executive_summary": A brief overview of the strategy
+            2. "target_audience_analysis": Details about the target audience and their needs
+            3. "content_themes": A list of key themes and topics to focus on
+            4. "content_types": Types of content to create (posts, articles, threads, etc.)
+            5. "platform_recommendations": Platform-specific strategies for LinkedIn and Twitter
+            6. "posting_schedule": Recommended posting frequency and timings
+            7. "engagement_strategies": Tactics for increasing engagement
+            8. "success_metrics": KPIs to track performance
+            9. "action_plan": Specific next steps to implement the strategy
+            
+            Ensure each section has detailed, actionable information.
+            Format your response as a valid JSON object with these exact keys.
             """
             
-            # Use OpenAI client directly
-            logger.info("Creating content strategy using OpenAI directly")
+            # Use OpenAI client directly with JSON response format
+            logger.info("Creating structured content strategy using OpenAI directly")
             response = self.openai_client.chat.completions.create(
                 model="gpt-4o",
                 messages=[
-                    {"role": "system", "content": "You are an expert content strategist specializing in social media marketing."},
+                    {"role": "system", "content": "You are an expert content strategist specializing in social media marketing. Return your response in a structured JSON format."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7,
-                max_tokens=2000
+                max_tokens=4500,
+                response_format={"type": "json_object"}
             )
             
-            # Extract the content from response
-            result = response.choices[0].message.content
+            # Extract the content from response and parse as JSON
+            result_text = response.choices[0].message.content
+            result_json = json.loads(result_text)
             
-            logger.info("Content strategy created successfully")
-            return result
+            # Also store original text version for rendering
+            result_json["text_version"] = self._generate_text_version(result_json)
+            
+            logger.info("Structured content strategy created successfully")
+            return result_json
         except Exception as e:
             logger.error(f"Error creating content strategy: {str(e)}")
-            return f"Error creating content strategy: {str(e)}"
+            return {
+                "error": f"Error creating content strategy: {str(e)}",
+                "text_version": f"Error: {str(e)}"
+            }
+    
+    def _generate_text_version(self, strategy_json: Dict[str, Any]) -> str:
+        """Generate a readable text version of the JSON strategy."""
+        try:
+            text = "# Content Strategy\n\n"
+            
+            # Executive Summary
+            text += "## Executive Summary\n\n"
+            text += f"{strategy_json.get('executive_summary', 'No summary provided.')}\n\n"
+            
+            # Target Audience Analysis
+            text += "## Target Audience Analysis\n\n"
+            text += f"{strategy_json.get('target_audience_analysis', 'No audience analysis provided.')}\n\n"
+            
+            # Content Themes
+            text += "## Content Themes\n\n"
+            themes = strategy_json.get('content_themes', [])
+            if isinstance(themes, list):
+                for theme in themes:
+                    text += f"- {theme}\n"
+            else:
+                text += themes
+            text += "\n\n"
+            
+            # Content Types
+            text += "## Content Types\n\n"
+            content_types = strategy_json.get('content_types', {})
+            if isinstance(content_types, dict):
+                for platform, types in content_types.items():
+                    text += f"### {platform}\n"
+                    if isinstance(types, list):
+                        for t in types:
+                            text += f"- {t}\n"
+                    else:
+                        text += f"{types}\n"
+            else:
+                text += content_types
+            text += "\n"
+            
+            # Platform Recommendations
+            text += "## Platform Recommendations\n\n"
+            platforms = strategy_json.get('platform_recommendations', {})
+            if isinstance(platforms, dict):
+                for platform, recommendation in platforms.items():
+                    text += f"### {platform}\n"
+                    text += f"{recommendation}\n\n"
+            else:
+                text += platforms
+            text += "\n"
+            
+            # Posting Schedule
+            text += "## Posting Schedule\n\n"
+            text += f"{strategy_json.get('posting_schedule', 'No posting schedule provided.')}\n\n"
+            
+            # Engagement Strategies
+            text += "## Engagement Strategies\n\n"
+            text += f"{strategy_json.get('engagement_strategies', 'No engagement strategies provided.')}\n\n"
+            
+            # Success Metrics
+            text += "## Success Metrics\n\n"
+            metrics = strategy_json.get('success_metrics', [])
+            if isinstance(metrics, list):
+                for metric in metrics:
+                    text += f"- {metric}\n"
+            else:
+                text += metrics
+            text += "\n\n"
+            
+            # Action Plan
+            text += "## Action Plan\n\n"
+            action_plan = strategy_json.get('action_plan', [])
+            if isinstance(action_plan, list):
+                for i, action in enumerate(action_plan, 1):
+                    text += f"{i}. {action}\n"
+            else:
+                text += action_plan
+                
+            return text
+        except Exception as e:
+            logger.error(f"Error generating text version: {str(e)}")
+            return "Error generating text version of the strategy. Please refer to the JSON data."
 
     def generate_content(self, topic: str, platform: str, content_type: str) -> dict:
         """

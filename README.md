@@ -3,7 +3,7 @@
 A powerful, AI-driven social media management solution built with CrewAI that automates content strategy, creation, scheduling, and engagement across LinkedIn and X.com (Twitter).
 
 <div align="center">
-  <img src="https://img.shields.io/badge/Python-3.8+-blue.svg" alt="Python 3.8+">
+  <img src="https://img.shields.io/badge/Python-3.9+-blue.svg" alt="Python 3.9+">
   <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License: MIT">
   <img src="https://img.shields.io/badge/CrewAI-0.28.0+-orange.svg" alt="CrewAI 0.28.0+">
 </div>
@@ -20,9 +20,9 @@ A powerful, AI-driven social media management solution built with CrewAI that au
 
 ## 📋 Prerequisites
 
-- Python 3.8+
+- Python 3.9+
 - API keys for:
-  - OpenAI (for CrewAI)
+  - OpenAI (for CrewAI and direct content generation)
   - Google Gemini (for image generation)
   - LinkedIn API (client ID, client secret, access token)
   - Twitter API (API key, API secret, access token, access token secret)
@@ -94,7 +94,7 @@ To set up LinkedIn API access:
    ```
 5. Run the LinkedIn OAuth helper script:
    ```bash
-   python linkedin_auth.py
+   python src/utils/linkedin_auth.py
    ```
 6. Follow the browser prompts to authorize your application
 7. The access token will be automatically saved to your `.env` file
@@ -120,12 +120,32 @@ To set up Twitter API access:
    ```
 6. Verify your Twitter credentials:
    ```bash
-   python twitter_auth.py
+   python src/utils/twitter_auth.py
    ```
 
 If you encounter any authentication issues, the helper scripts will provide detailed guidance on how to resolve them.
 
 ## 💻 Usage
+
+### Web UI (Recommended)
+
+The project includes a modern, responsive web-based user interface for easier interaction with the social media agent. To start the web UI:
+
+```bash
+python web_ui.py
+```
+
+Then open your browser and navigate to `http://localhost:5001` to access the interface.
+
+The web UI provides the following features:
+- Content strategy generation
+- Content creation
+- Image generation
+- Post scheduling
+- Immediate posting
+- Engagement monitoring
+- Comment response generation
+- Running the scheduler and monitor
 
 ### Command Line Interface
 
@@ -187,26 +207,6 @@ To run the monitor that will check for comments on posts and generate responses:
 python -m src.monitor
 ```
 
-## 🌐 Web UI
-
-The project includes a modern, responsive web-based user interface for easier interaction with the social media agent. To start the web UI:
-
-```bash
-python web_ui.py
-```
-
-Then open your browser and navigate to `http://localhost:5000` to access the interface.
-
-The web UI provides the following features:
-- Content strategy generation
-- Content creation
-- Image generation
-- Post scheduling
-- Immediate posting
-- Engagement monitoring
-- Comment response generation
-- Running the scheduler and monitor
-
 ## 🚀 Running the Entire System
 
 To start all components of the system (web UI, scheduler, and monitor) at once, run:
@@ -223,7 +223,134 @@ This script will:
 5. Monitor all processes and restart them if they crash
 6. Gracefully shut down all components when you press Ctrl+C
 
-This is the recommended way to run the system in development mode.
+This is the recommended way to run the system in development or production mode.
+
+## 📋 Project Vision
+
+### Core Mission
+
+The CrewAI Social Media Agent aims to democratize access to professional social media management by providing an AI-powered solution that handles the entire content lifecycle - from strategy to engagement. The system is designed to help businesses, entrepreneurs, and content creators maintain a consistent and engaging social media presence without the need for dedicated social media teams or expensive agency services.
+
+### Long-Term Goals
+
+1. **Autonomous Social Media Management**: Create a fully autonomous system that can operate with minimal human supervision, making intelligent decisions about content strategy, creation, and engagement.
+
+2. **Multi-Platform Support**: Expand beyond LinkedIn and Twitter to support all major social media platforms including Instagram, Facebook, TikTok, and emerging platforms.
+
+3. **Advanced Analytics**: Develop comprehensive analytics capabilities that provide actionable insights into social media performance and ROI.
+
+4. **Content Personalization**: Implement advanced personalization algorithms that target specific audience segments based on user behavior and engagement patterns.
+
+5. **Ecosystem Integration**: Create integrations with other marketing tools including CRM systems, email marketing platforms, and web analytics solutions.
+
+### Development Philosophy
+
+The project follows these guiding principles:
+
+- **User-Centric Design**: All features are developed with the end user in mind, prioritizing ease of use and accessibility.
+- **Modular Architecture**: The system is built with a modular design to allow for easy extension and customization.
+- **Ethical AI Use**: The AI components prioritize ethical content generation, avoiding manipulative tactics and promoting authentic engagement.
+- **Performance Optimization**: All components are designed for optimal performance, minimizing resource usage while maximizing capabilities.
+- **Continuous Improvement**: The system is designed to learn and improve over time based on user feedback and performance data.
+
+## 🏗️ Project Architecture
+
+### System Overview
+
+The CrewAI Social Media Agent is built on a modular architecture that separates concerns and allows for independent development and scaling of different components. The system consists of three main layers:
+
+1. **Interface Layer**: Web UI and command-line interfaces that allow users to interact with the system.
+2. **Application Layer**: Core business logic including agent behaviors, content generation, and scheduling.
+3. **Integration Layer**: Tools and connectors for external services including social media APIs and AI providers.
+
+### Component Diagram
+
+```
+╔════════════════════════════════════════╗
+║              Interface Layer            ║
+╠════════════════════════════════════════╣
+║                                         ║
+║    ┌──────────┐         ┌──────────┐   ║
+║    │  Web UI  │         │    CLI   │   ║
+║    └────┬─────┘         └────┬─────┘   ║
+║         │                    │         ║
+╚═════════│════════════════════│═════════╝
+          │                    │
+          ▼                    ▼
+╔═════════════════════════════════════════╗
+║             Application Layer            ║
+╠═════════════════════════════════════════╣
+║                                          ║
+║    ┌─────────────────────────────────┐  ║
+║    │       Social Media Agent         │  ║
+║    └───────────────┬─────────────────┘  ║
+║                    │                    ║
+║    ┌───────────────┼───────────────┐    ║
+║    │               │               │    ║
+║    ▼               ▼               ▼    ║
+║ ┌─────────┐  ┌──────────┐  ┌──────────┐ ║
+║ │Scheduler│  │ Monitor  │  │ Strategy │ ║
+║ └─────────┘  └──────────┘  └──────────┘ ║
+║                                          ║
+╚══════════════════│════════════════════════╝
+                   │
+                   ▼
+╔═════════════════════════════════════════╗
+║             Integration Layer            ║
+╠═════════════════════════════════════════╣
+║                                          ║
+║  ┌──────────┐ ┌──────────┐ ┌──────────┐ ║
+║  │ LinkedIn │ │ Twitter  │ │ OpenAI   │ ║
+║  │  Tool    │ │  Tool    │ │  Client  │ ║
+║  └──────────┘ └──────────┘ └──────────┘ ║
+║                                          ║
+║  ┌──────────┐ ┌──────────┐ ┌──────────┐ ║
+║  │ Gemini   │ │ Scheduler│ │ Storage  │ ║
+║  │ Tool     │ │  Tool    │ │  Client  │ ║
+║  └──────────┘ └──────────┘ └──────────┘ ║
+║                                          ║
+╚══════════════════════════════════════════╝
+```
+
+### Key Components
+
+1. **Social Media Agent**:
+   - Serves as the core orchestrator for all social media operations
+   - Manages tool selection and execution based on user requirements
+   - Implements direct OpenAI integration for content generation
+
+2. **Tools Layer**:
+   - **LinkedIn Tool**: Handles all LinkedIn API interactions
+   - **Twitter Tool**: Manages all Twitter/X.com API operations
+   - **Gemini Image Tool**: Generates images using Google's Gemini model
+   - **Scheduler Tool**: Manages scheduling and execution of timed posts
+
+3. **Web UI**:
+   - Modern, responsive interface built with Flask and Tailwind CSS
+   - Provides form-based interfaces for all system capabilities
+   - Implements real-time feedback for user operations
+
+4. **Schedulers and Monitors**:
+   - Background processes that handle scheduled tasks
+   - Monitor engagement and trigger responses
+   - Implement fault tolerance and recovery mechanisms
+
+### Data Flow
+
+1. **Content Strategy Creation**:
+   - User inputs industry, target audience, and goals
+   - OpenAI generates comprehensive content strategy
+   - Strategy is rendered on web UI or returned via CLI
+
+2. **Content Generation**:
+   - User provides topic, platform, and content type
+   - OpenAI creates optimized content for the specified platform
+   - Content is stored and optionally scheduled or posted immediately
+
+3. **Engagement Monitoring**:
+   - Monitor periodically checks posts for new engagements
+   - When new comments are detected, they're processed for response
+   - AI generates contextually appropriate responses
 
 ## 📁 Project Structure
 
@@ -232,92 +359,61 @@ crewai_socialagent/
 ├── .env                    # Environment variables
 ├── README.md               # Project documentation
 ├── requirements.txt        # Project dependencies
-├── linkedin_auth.py        # LinkedIn OAuth helper script
-├── twitter_auth.py         # Twitter verification script
-├── web_ui.py               # Web UI launcher
-├── verify_setup.py         # Setup verification script
 ├── run.py                  # System launcher script
+├── verify_setup.py         # Setup verification script
+├── web_ui.py               # Web UI launcher
 ├── src/                    # Source code
 │   ├── __init__.py
-│   ├── main.py             # Main application
-│   ├── scheduler.py        # Scheduler for running scheduled posts
-│   ├── monitor.py          # Monitor for checking comments
-│   ├── web_ui.py           # Web UI implementation
+│   ├── main.py             # CLI entrypoint
+│   ├── scheduler.py        # Scheduled posts service
+│   ├── monitor.py          # Engagement monitor service
 │   ├── agents/             # Agent definitions
 │   │   ├── __init__.py
 │   │   ├── social_media_agent.py
-│   │   └── tasks.py
+│   │   └── content_strategy_agent.py
 │   ├── tools/              # Custom tools
 │   │   ├── __init__.py
-│   │   ├── gemini_image_tool.py
 │   │   ├── linkedin_tool.py
 │   │   ├── twitter_tool.py
+│   │   ├── gemini_image_tool.py
 │   │   └── scheduler_tool.py
 │   ├── utils/              # Utility functions
 │   │   ├── __init__.py
 │   │   ├── linkedin_auth.py
 │   │   └── twitter_auth.py
-│   ├── config/             # Configuration
-│   │   ├── __init__.py
-│   │   └── config.py
-│   └── templates/          # Web UI templates
-│       ├── base.html
-│       ├── index.html
-│       └── content_strategy.html
-├── memory_storage/         # Memory storage directory
-├── generated_images/       # Generated images directory
-├── comments/               # Comments directory
-└── responses/              # Responses directory
+│   ├── web_ui/             # Web interface
+│       ├── __init__.py
+│       ├── routes.py
+│       └── templates/
+│           ├── base.html
+│           ├── index.html
+│           ├── content_strategy.html
+│           └── ...
+└── memory_storage/         # CrewAI memory storage
 ```
 
-## 🔍 Verifying Your Setup
+## 🧩 Extensibility
 
-To verify that your environment is set up correctly, run:
+The CrewAI Social Media Agent is designed to be easily extensible. To add support for new platforms or features:
 
-```bash
-python verify_setup.py
-```
+1. **Adding New Social Media Platforms**:
+   - Create a new tool class in `src/tools/` that implements the required API interactions
+   - Add the tool to the `SocialMediaAgent` initialization in `social_media_agent.py`
+   - Update the web UI to include the new platform options
 
-This script will check:
-- If all required API keys are set in your `.env` file
-- If all required packages are installed
-- If the project structure is correct
+2. **Adding New Content Types**:
+   - Extend the content generation prompts in the `SocialMediaAgent` class
+   - Update the web UI to include the new content type options
 
-If any issues are found, the script will provide guidance on how to fix them.
+3. **Adding New Capabilities**:
+   - Implement new methods in the `SocialMediaAgent` class
+   - Add corresponding routes in the web UI
+   - Update the CLI to expose the new capabilities
 
-## 🛠️ Extending the System
-
-### Adding New Social Media Platforms
-
-To add support for a new social media platform:
-
-1. Create a new tool in `src/tools/` (e.g., `instagram_tool.py`)
-2. Implement the necessary API interactions
-3. Update the agent and task classes to support the new platform
-4. Add the new platform to the web UI
-
-### Enhancing the AI Capabilities
-
-The system uses CrewAI, which allows for easy enhancement of AI capabilities:
-
-1. Modify the agent roles and goals in `src/agents/social_media_agent.py`
-2. Add new tasks in `src/agents/tasks.py`
-3. Implement new tools as needed
-
-## 📝 License
+## 📜 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🙏 Acknowledgements
-
-- [CrewAI](https://github.com/crewAIInc/crewAI) - Framework for orchestrating role-playing, autonomous AI agents
-- [CrewAI Tools](https://github.com/crewAIInc/crewAI-tools) - Tools for CrewAI
-- [Google Gemini](https://ai.google.dev/gemini-api) - Multimodal AI model for image generation
-- [Flask](https://flask.palletsprojects.com/) - Web framework for the UI
-- [Tailwind CSS](https://tailwindcss.com/) - CSS framework for the UI
-
 ---
 
-<div align="center">
-  <p>Made with ❤️ by Adrian Tamplaru - <a href="https://ad1x.com">ad1x.com</a> and Claude Sonnet 3.7</p>
-</div>
+*Created by Adrian Tamplaru (ad1x.com) with assistance from Claude Sonnet 3.7*

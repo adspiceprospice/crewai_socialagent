@@ -4,6 +4,7 @@ from langchain_openai import ChatOpenAI
 import os
 from datetime import datetime
 import logging
+import json
 
 # Configure logging
 logging.basicConfig(
@@ -37,6 +38,7 @@ def index():
 def content_strategy():
     """Render the content strategy page and handle form submission."""
     result = None
+    strategy_json = None
     
     if request.method == 'POST':
         try:
@@ -47,17 +49,24 @@ def content_strategy():
             if not all([industry, target_audience, goals]):
                 flash('Please fill out all required fields', 'danger')
             else:
-                result = agent.create_content_strategy(
+                # Get structured content strategy
+                strategy_json = agent.create_content_strategy(
                     industry=industry,
                     target_audience=target_audience,
                     goals=goals
                 )
-                flash('Content strategy generated successfully!', 'success')
+                
+                if 'error' in strategy_json:
+                    flash(f'Error generating content strategy: {strategy_json["error"]}', 'danger')
+                else:
+                    # Get the formatted text version for rendering
+                    result = strategy_json.get('text_version', '')
+                    flash('Content strategy generated successfully!', 'success')
         except Exception as e:
             logger.error(f"Error in content strategy route: {str(e)}")
             flash(f'Error generating content strategy: {str(e)}', 'danger')
     
-    return render_template('content_strategy.html', result=result)
+    return render_template('content_strategy.html', result=result, strategy_json=strategy_json)
 
 @bp.route('/content-strategy', methods=['POST'])
 def create_content_strategy():
