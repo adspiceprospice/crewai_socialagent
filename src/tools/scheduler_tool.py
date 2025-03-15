@@ -3,6 +3,7 @@ import os
 import datetime
 from typing import Dict, Any, List, Optional
 from crewai.tools import BaseTool
+from pydantic import PrivateAttr
 
 class SchedulerTool(BaseTool):
     """Tool for scheduling social media posts."""
@@ -10,25 +11,54 @@ class SchedulerTool(BaseTool):
     name: str = "Content Scheduler"
     description: str = "Schedule social media posts for future publication."
     
+    _schedule_file: str = PrivateAttr()
+    
     def __init__(self, schedule_file: str = "content_schedule.json"):
         super().__init__()
-        self.schedule_file = schedule_file
+        self._schedule_file = schedule_file
         self._ensure_schedule_file_exists()
+        
+    def _run(
+        self, 
+        content: str, 
+        platform: str,
+        schedule_time: str,
+        image_path: Optional[str] = None,
+        post_type: str = "regular"
+    ) -> str:
+        """
+        Required method from BaseTool. Executes the scheduling operation.
+        
+        Args:
+            content: The content of the post
+            platform: The platform to post to (e.g., "linkedin", "twitter")
+            schedule_time: ISO-8601 timestamp for when to post
+            image_path: Optional path to an image to include in the post
+            post_type: Type of post (e.g., "regular", "promotion", "engagement")
+            
+        Returns:
+            str: Result message of the scheduling operation
+        """
+        result = self._execute(content, platform, schedule_time, image_path, post_type)
+        if result.get("success", False):
+            return f"Successfully scheduled post for {schedule_time} on {platform}. Post ID: {result.get('post_id', 'N/A')}"
+        else:
+            return f"Error scheduling post: {result.get('error', 'Unknown error')}"
         
     def _ensure_schedule_file_exists(self):
         """Ensure the schedule file exists."""
-        if not os.path.exists(self.schedule_file):
-            with open(self.schedule_file, "w") as f:
+        if not os.path.exists(self._schedule_file):
+            with open(self._schedule_file, "w") as f:
                 json.dump({"scheduled_posts": []}, f)
                 
     def _load_schedule(self) -> Dict[str, List[Dict[str, Any]]]:
         """Load the schedule from the file."""
-        with open(self.schedule_file, "r") as f:
+        with open(self._schedule_file, "r") as f:
             return json.load(f)
             
     def _save_schedule(self, schedule: Dict[str, List[Dict[str, Any]]]):
         """Save the schedule to the file."""
-        with open(self.schedule_file, "w") as f:
+        with open(self._schedule_file, "w") as f:
             json.dump(schedule, f, indent=2)
     
     def _execute(

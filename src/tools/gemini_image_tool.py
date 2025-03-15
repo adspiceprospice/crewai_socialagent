@@ -3,6 +3,7 @@ import base64
 import google.generativeai as genai
 from crewai.tools import BaseTool
 from typing import Dict, Any, Optional
+from pydantic import PrivateAttr
 from src.config.config import GEMINI_API_KEY
 
 class GeminiImageTool(BaseTool):
@@ -11,11 +12,31 @@ class GeminiImageTool(BaseTool):
     name: str = "Gemini Image Generator"
     description: str = "Generate images based on text descriptions using Google's Gemini 2.0 Flash model."
     
+    _model: str = PrivateAttr()
+    
     def __init__(self):
         super().__init__()
         # Configure the Gemini API
         genai.configure(api_key=GEMINI_API_KEY)
-        self.model = "gemini-2.0-flash-exp-image-generation"
+        self._model = "gemini-2.0-flash-exp-image-generation"
+    
+    def _run(self, prompt: str, reference_image_path: Optional[str] = None) -> str:
+        """
+        Required method for CrewAI tool compatibility.
+        Executes the image generation and returns the path to the generated image.
+        
+        Args:
+            prompt: Text description of the image to generate
+            reference_image_path: Optional path to a reference image
+            
+        Returns:
+            str: Path to the generated image or error message
+        """
+        result = self._execute(prompt, reference_image_path)
+        if result["success"]:
+            return result["image_path"]
+        else:
+            return f"Error: {result.get('error', 'Unknown error')}"
         
     def _save_binary_file(self, file_name: str, data: bytes) -> str:
         """Save binary data to a file."""
@@ -58,7 +79,7 @@ class GeminiImageTool(BaseTool):
             
             # Generate the image
             response = client.models.generate_content(
-                model=self.model,
+                model=self._model,
                 contents=contents,
                 generation_config={
                     "temperature": 1,

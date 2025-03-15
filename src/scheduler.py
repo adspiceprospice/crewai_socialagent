@@ -1,8 +1,15 @@
+#!/usr/bin/env python
+"""
+Scheduler for the CrewAI Social Media Agent.
+This script handles scheduling and posting of content at specified times.
+"""
+
 import os
-import json
+import sys
 import time
-import datetime
+import json
 import logging
+import datetime
 from typing import Dict, Any, List
 from src.tools.linkedin_tool import LinkedInTool
 from src.tools.twitter_tool import TwitterTool
@@ -33,8 +40,16 @@ class PostScheduler:
         """
         self.schedule_file = schedule_file
         self.check_interval = check_interval
-        self.linkedin_tool = LinkedInTool()
-        self.twitter_tool = TwitterTool()
+        
+        try:
+            self.linkedin_tool = LinkedInTool()
+            self.twitter_tool = TwitterTool()
+            logger.info("Successfully initialized social media tools")
+        except Exception as e:
+            logger.error(f"Error initializing social media tools: {str(e)}")
+            # Still create the scheduler but disable posting functionality
+            self.linkedin_tool = None
+            self.twitter_tool = None
         
     def _load_schedule(self) -> Dict[str, List[Dict[str, Any]]]:
         """Load the schedule from the file."""
@@ -66,18 +81,31 @@ class PostScheduler:
         Returns:
             Dictionary containing the result of the posting operation
         """
+        if self.linkedin_tool is None or self.twitter_tool is None:
+            return {
+                "success": False,
+                "error": "Social media tools are not initialized"
+            }
+            
         platform = post.get("platform", "").lower()
         content = post.get("content", "")
         image_path = post.get("image_path")
         
-        if platform == "linkedin":
-            return self.linkedin_tool._execute(content, image_path)
-        elif platform == "twitter":
-            return self.twitter_tool._execute(content, image_path)
-        else:
+        try:
+            if platform == "linkedin":
+                return self.linkedin_tool._execute(content, image_path)
+            elif platform == "twitter":
+                return self.twitter_tool._execute(content, image_path)
+            else:
+                return {
+                    "success": False,
+                    "error": f"Unsupported platform: {platform}"
+                }
+        except Exception as e:
+            logger.error(f"Error posting to {platform}: {str(e)}")
             return {
                 "success": False,
-                "error": f"Unsupported platform: {platform}"
+                "error": f"Error posting to {platform}: {str(e)}"
             }
             
     def _is_due(self, post: Dict[str, Any]) -> bool:
@@ -116,51 +144,68 @@ class PostScheduler:
         
         try:
             while True:
-                # Load the schedule
-                schedule = self._load_schedule()
+                try:
+                    # Load the schedule
+                    schedule = self._load_schedule()
+                    
+                    # Check for posts that are due
+                    posts_to_remove = []
+                    for i, post in enumerate(schedule.get("scheduled_posts", [])):
+                        if post.get("status") == "scheduled" and self._is_due(post):
+                            logger.info(f"Publishing scheduled post: {post.get('id')}")
+                            
+                            # Post to the platform
+                            result = self._post_to_platform(post)
+                            
+                            if result.get("success", False):
+                                logger.info(f"Successfully published post: {post.get('id')}")
+                                
+                                # Update the post status
+                                post["status"] = "published"
+                                post["published_at"] = datetime.datetime.now().isoformat()
+                                post["platform_post_id"] = result.get("post_id") or result.get("tweet_id")
+                                
+                                # Save the updated schedule
+                                self._save_schedule(schedule)
+                            else:
+                                logger.error(f"Failed to publish post: {post.get('id')} - {result.get('error')}")
+                                
+                                # Update the post status
+                                post["status"] = "failed"
+                                post["error"] = result.get("error")
+                                post["failed_at"] = datetime.datetime.now().isoformat()
+                                
+                                # Save the updated schedule
+                                self._save_schedule(schedule)
                 
-                # Check for posts that are due
-                posts_to_remove = []
-                for i, post in enumerate(schedule.get("scheduled_posts", [])):
-                    if post.get("status") == "scheduled" and self._is_due(post):
-                        logger.info(f"Publishing scheduled post: {post.get('id')}")
-                        
-                        # Post to the platform
-                        result = self._post_to_platform(post)
-                        
-                        if result.get("success", False):
-                            logger.info(f"Successfully published post: {post.get('id')}")
-                            
-                            # Update the post status
-                            post["status"] = "published"
-                            post["published_at"] = datetime.datetime.now().isoformat()
-                            post["platform_post_id"] = result.get("post_id") or result.get("tweet_id")
-                            
-                            # Save the updated schedule
-                            self._save_schedule(schedule)
-                        else:
-                            logger.error(f"Failed to publish post: {post.get('id')} - {result.get('error')}")
-                            
-                            # Update the post status
-                            post["status"] = "failed"
-                            post["error"] = result.get("error")
-                            post["failed_at"] = datetime.datetime.now().isoformat()
-                            
-                            # Save the updated schedule
-                            self._save_schedule(schedule)
-                
-                # Sleep for the check interval
-                time.sleep(self.check_interval)
+                    # Sleep for the check interval
+                    time.sleep(self.check_interval)
+                except Exception as e:
+                    logger.error(f"Error in scheduler loop: {str(e)}")
+                    time.sleep(self.check_interval)  # Sleep and try again
                 
         except KeyboardInterrupt:
             logger.info("Stopping post scheduler")
         except Exception as e:
             logger.error(f"Error in scheduler: {str(e)}")
-            
+            # Keep the process running instead of crashing
+            time.sleep(60)
+            self.run()  # Restart the scheduler
+
 def main():
     """Main function to run the scheduler."""
-    scheduler = PostScheduler()
-    scheduler.run()
-    
+    try:
+        scheduler = PostScheduler()
+        scheduler.run()
+    except Exception as e:
+        logger.error(f"Fatal error in scheduler main: {str(e)}")
+        # Sleep before exiting to prevent rapid restarts
+        time.sleep(60)
+
 if __name__ == "__main__":
-    main() 
+    try:
+        main()
+    except Exception as e:
+        logger.error(f"Unhandled exception in scheduler: {str(e)}")
+        # Sleep before exiting to prevent rapid restarts
+        time.sleep(60) 

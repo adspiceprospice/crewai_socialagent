@@ -1,3 +1,4 @@
+import logging
 from crewai import Agent
 from crewai.tools import BaseTool
 from typing import List, Optional
@@ -5,6 +6,16 @@ from src.tools.gemini_image_tool import GeminiImageTool
 from src.tools.linkedin_tool import LinkedInTool
 from src.tools.twitter_tool import TwitterTool
 from src.tools.scheduler_tool import SchedulerTool
+from datetime import datetime
+from langchain_openai import ChatOpenAI
+from .content_strategy_agent import ContentStrategyAgent
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger("social_media_agent")
 
 class SocialMediaAgent:
     """
@@ -19,7 +30,8 @@ class SocialMediaAgent:
         backstory: str = "I am an experienced social media manager with expertise in content creation, scheduling, and engagement. I help businesses build their online presence and engage with their audience effectively.",
         verbose: bool = True,
         allow_delegation: bool = False,
-        extra_tools: Optional[List[BaseTool]] = None
+        extra_tools: Optional[List[BaseTool]] = None,
+        llm: ChatOpenAI = None
     ):
         """
         Initialize the social media agent.
@@ -32,135 +44,266 @@ class SocialMediaAgent:
             verbose: Whether to enable verbose output
             allow_delegation: Whether to allow the agent to delegate tasks
             extra_tools: Additional tools to provide to the agent
+            llm: Language model to use for content strategy generation
         """
-        # Default tools
-        self.default_tools = [
-            GeminiImageTool(),
-            LinkedInTool(),
-            TwitterTool(),
-            SchedulerTool()
-        ]
+        logger.info("Initializing SocialMediaAgent")
+        self.llm = llm
         
-        # Add extra tools if provided
-        self.tools = self.default_tools
-        if extra_tools:
-            self.tools.extend(extra_tools)
+        try:
+            # Initialize content strategy agent
+            logger.info("Initializing ContentStrategyAgent")
+            self.content_strategy_agent = ContentStrategyAgent(llm=self.llm)
             
-        # Create the agent
-        self.agent = Agent(
-            name=name,
-            role=role,
-            goal=goal,
-            backstory=backstory,
-            verbose=verbose,
-            allow_delegation=allow_delegation,
-            tools=self.tools
-        )
-        
+            # Initialize tools
+            logger.info("Initializing tools")
+            self.tools = []
+            
+            # Add tools with error handling
+            try:
+                self.tools.append(GeminiImageTool())
+                logger.info("GeminiImageTool initialized")
+            except Exception as e:
+                logger.error(f"Error initializing GeminiImageTool: {str(e)}")
+                
+            try:
+                self.tools.append(LinkedInTool())
+                logger.info("LinkedInTool initialized")
+            except Exception as e:
+                logger.error(f"Error initializing LinkedInTool: {str(e)}")
+                
+            try:
+                self.tools.append(TwitterTool())
+                logger.info("TwitterTool initialized")
+            except Exception as e:
+                logger.error(f"Error initializing TwitterTool: {str(e)}")
+                
+            try:
+                self.tools.append(SchedulerTool())
+                logger.info("SchedulerTool initialized")
+            except Exception as e:
+                logger.error(f"Error initializing SchedulerTool: {str(e)}")
+            
+            # Add extra tools if provided
+            if extra_tools:
+                self.tools.extend(extra_tools)
+                
+            logger.info("SocialMediaAgent initialized successfully")
+        except Exception as e:
+            logger.error(f"Error during SocialMediaAgent initialization: {str(e)}")
+            # Continue with partial initialization to prevent crashes
+
     def get_agent(self) -> Agent:
         """Get the CrewAI agent instance."""
         return self.agent
         
     def create_content_strategy(self, industry: str, target_audience: str, goals: List[str]) -> str:
         """
-        Create a content strategy for the specified industry, target audience, and goals.
+        Create a content strategy using the ContentStrategyAgent.
         
         Args:
-            industry: The industry the content is for
-            target_audience: The target audience for the content
-            goals: The goals of the content strategy
+            industry (str): The industry or business domain
+            target_audience (str): Description of the target audience
+            goals (List[str]): List of goals to achieve with the content strategy
             
         Returns:
-            A string containing the content strategy
+            str: A detailed content strategy
         """
-        # This will be implemented as a task for the agent
-        pass
+        logger.info(f"Creating content strategy for {industry}, target audience: {target_audience}")
+        try:
+            if not self.content_strategy_agent:
+                logger.error("ContentStrategyAgent not initialized")
+                return "Error: Content strategy agent not initialized"
+                
+            result = self.content_strategy_agent.create_content_strategy(
+                industry=industry,
+                target_audience=target_audience,
+                goals=goals
+            )
+            logger.info("Content strategy created successfully")
+            return result
+        except Exception as e:
+            logger.error(f"Error creating content strategy: {str(e)}")
+            return f"Error creating content strategy: {str(e)}"
         
     def generate_content(self, topic: str, platform: str, content_type: str) -> dict:
         """
-        Generate content for the specified topic, platform, and content type.
+        Generate content based on the given parameters.
         
         Args:
-            topic: The topic to generate content for
-            platform: The platform to generate content for (e.g., "linkedin", "twitter")
-            content_type: The type of content to generate (e.g., "post", "article", "thread")
+            topic (str): The topic to create content about
+            platform (str): The target platform (e.g., 'linkedin', 'twitter')
+            content_type (str): Type of content to generate (e.g., 'post', 'article', 'thread')
             
         Returns:
-            A dictionary containing the generated content
+            dict: Generated content with metadata
         """
-        # This will be implemented as a task for the agent
-        pass
+        logger.info(f"Generating content for topic: {topic}, platform: {platform}, type: {content_type}")
+        try:
+            # For demonstration purposes, return a mock response
+            return {
+                "content": f"This is a sample {content_type} for {platform} about {topic}.",
+                "platform": platform,
+                "type": content_type,
+                "created_at": datetime.now().isoformat()
+            }
+        except Exception as e:
+            logger.error(f"Error generating content: {str(e)}")
+            return {
+                "error": f"Error generating content: {str(e)}"
+            }
         
-    def schedule_content(self, content: str, platform: str, schedule_time: str, image_path: Optional[str] = None) -> dict:
+    def schedule_content(self, content: str, platform: str, schedule_time: datetime, image_path: Optional[str] = None) -> dict:
         """
         Schedule content for posting.
         
         Args:
-            content: The content to post
-            platform: The platform to post to (e.g., "linkedin", "twitter")
-            schedule_time: The time to schedule the post for (ISO-8601 format)
-            image_path: Optional path to an image to include in the post
+            content (str): The content to schedule
+            platform (str): The target platform
+            schedule_time (datetime): When to post the content
+            image_path (Optional[str]): Path to an image to include with the post
             
         Returns:
-            A dictionary containing the result of the scheduling operation
+            dict: Scheduling confirmation and metadata
         """
-        # This will be implemented as a task for the agent
-        pass
+        logger.info(f"Scheduling content for {platform} at {schedule_time}")
+        try:
+            # Find the scheduler tool
+            scheduler_tool = next((tool for tool in self.tools if isinstance(tool, SchedulerTool)), None)
+            
+            if scheduler_tool:
+                # Use the scheduler tool to schedule the content
+                result = scheduler_tool._run(
+                    content=content,
+                    platform=platform,
+                    schedule_time=schedule_time.isoformat(),
+                    image_path=image_path
+                )
+                return {"success": True, "message": result}
+            else:
+                logger.error("Scheduler tool not found")
+                return {"error": "Scheduler tool not found"}
+        except Exception as e:
+            logger.error(f"Error scheduling content: {str(e)}")
+            return {"error": f"Error scheduling content: {str(e)}"}
         
     def post_content(self, content: str, platform: str, image_path: Optional[str] = None) -> dict:
         """
         Post content immediately.
         
         Args:
-            content: The content to post
-            platform: The platform to post to (e.g., "linkedin", "twitter")
-            image_path: Optional path to an image to include in the post
+            content (str): The content to post
+            platform (str): The target platform
+            image_path (Optional[str]): Path to an image to include with the post
             
         Returns:
-            A dictionary containing the result of the posting operation
+            dict: Posting confirmation and metadata
         """
-        # This will be implemented as a task for the agent
-        pass
+        logger.info(f"Posting content to {platform}")
+        try:
+            if platform.lower() == "linkedin":
+                tool = next((tool for tool in self.tools if isinstance(tool, LinkedInTool)), None)
+            elif platform.lower() in ["twitter", "x"]:
+                tool = next((tool for tool in self.tools if isinstance(tool, TwitterTool)), None)
+            else:
+                logger.error(f"Unsupported platform: {platform}")
+                return {"error": f"Unsupported platform: {platform}"}
+                
+            if tool:
+                result = tool._run(
+                    text=content,
+                    image_path=image_path
+                )
+                return {"success": True, "message": result}
+            else:
+                logger.error(f"{platform} tool not found")
+                return {"error": f"{platform} tool not found"}
+        except Exception as e:
+            logger.error(f"Error posting content: {str(e)}")
+            return {"error": f"Error posting content: {str(e)}"}
         
-    def generate_image(self, prompt: str, reference_image_path: Optional[str] = None) -> dict:
+    def generate_image(self, prompt: str, reference_image_path: Optional[str] = None) -> str:
         """
-        Generate an image based on the provided prompt.
+        Generate an image based on the prompt.
         
         Args:
-            prompt: The prompt to generate an image from
-            reference_image_path: Optional path to a reference image
+            prompt (str): Description of the image to generate
+            reference_image_path (Optional[str]): Path to a reference image
             
         Returns:
-            A dictionary containing the path to the generated image
+            str: Path to the generated image
         """
-        # This will be implemented as a task for the agent
-        pass
+        logger.info(f"Generating image with prompt: {prompt}")
+        try:
+            # Find the image generation tool
+            image_tool = next((tool for tool in self.tools if isinstance(tool, GeminiImageTool)), None)
+            
+            if image_tool:
+                # Use the image tool to generate the image
+                result = image_tool._run(
+                    prompt=prompt,
+                    reference_image_path=reference_image_path
+                )
+                return result
+            else:
+                logger.error("Image generation tool not found")
+                return "Error: Image generation tool not found"
+        except Exception as e:
+            logger.error(f"Error generating image: {str(e)}")
+            return f"Error generating image: {str(e)}"
         
     def check_engagement(self, platform: str, post_id: str) -> dict:
         """
-        Check engagement on a post.
+        Check engagement metrics for a post.
         
         Args:
-            platform: The platform to check engagement on (e.g., "linkedin", "twitter")
-            post_id: The ID of the post to check engagement on
+            platform (str): The platform where the post is
+            post_id (str): ID of the post to check
             
         Returns:
-            A dictionary containing engagement metrics
+            dict: Engagement metrics
         """
-        # This will be implemented as a task for the agent
-        pass
+        logger.info(f"Checking engagement for {platform} post: {post_id}")
+        try:
+            if platform.lower() == "linkedin":
+                tool = next((tool for tool in self.tools if isinstance(tool, LinkedInTool)), None)
+                if tool:
+                    result = tool.get_post_engagement(post_id)
+                    return result
+            elif platform.lower() in ["twitter", "x"]:
+                tool = next((tool for tool in self.tools if isinstance(tool, TwitterTool)), None)
+                if tool:
+                    result = tool.get_tweet_metrics(post_id)
+                    return result
+                    
+            logger.error(f"Cannot check engagement for {platform}")
+            return {"error": f"Cannot check engagement for {platform}"}
+        except Exception as e:
+            logger.error(f"Error checking engagement: {str(e)}")
+            return {"error": f"Error checking engagement: {str(e)}"}
         
     def respond_to_comments(self, platform: str, post_id: str, comments: List[dict]) -> List[dict]:
         """
         Generate responses to comments on a post.
         
         Args:
-            platform: The platform the comments are on (e.g., "linkedin", "twitter")
-            post_id: The ID of the post the comments are on
-            comments: A list of comments to respond to
+            platform (str): The platform where the post is
+            post_id (str): ID of the post
+            comments (List[dict]): List of comments to respond to
             
         Returns:
-            A list of dictionaries containing the responses
+            List[dict]: Generated responses
         """
-        # This will be implemented as a task for the agent
-        pass 
+        logger.info(f"Responding to comments for {platform} post: {post_id}")
+        try:
+            # For demonstration purposes, generate mock responses
+            responses = []
+            for comment in comments:
+                responses.append({
+                    "comment_id": comment.get("id"),
+                    "response": f"Thank you for your comment: '{comment.get('text')}'",
+                    "timestamp": datetime.now().isoformat()
+                })
+            return responses
+        except Exception as e:
+            logger.error(f"Error responding to comments: {str(e)}")
+            return [{"error": f"Error responding to comments: {str(e)}"}] 

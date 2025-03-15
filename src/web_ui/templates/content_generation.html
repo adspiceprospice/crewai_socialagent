@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}CrewAI Social Media Agent - Generate Content{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <h1 class="text-3xl font-bold text-gray-800 mb-8">Generate Content</h1>
+    
+    <div class="bg-white shadow-md rounded-lg p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Create Engaging Social Media Content</h2>
+        
+        <form method="POST" class="space-y-6">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+            
+            <div>
+                <label for="topic" class="block text-sm font-medium text-gray-700 mb-1">Topic</label>
+                <input type="text" id="topic" name="topic" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Enter the topic for your content">
+            </div>
+            
+            <div>
+                <label for="platform" class="block text-sm font-medium text-gray-700 mb-1">Platform</label>
+                <select id="platform" name="platform" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="linkedin">LinkedIn</option>
+                    <option value="twitter">Twitter</option>
+                </select>
+            </div>
+            
+            <div>
+                <label for="content_type" class="block text-sm font-medium text-gray-700 mb-1">Content Type</label>
+                <select id="content_type" name="content_type" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="post">Post</option>
+                    <option value="article">Article</option>
+                    <option value="thread">Thread</option>
+                </select>
+            </div>
+            
+            <button type="submit" class="w-full bg-blue-600 text-white font-semibold px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Generate Content</button>
+        </form>
+    </div>
+    
+    {% if result %}
+    <div class="bg-white shadow-md rounded-lg p-6">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Generated Content</h2>
+        
+        {% if result.error %}
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+            <span class="block sm:inline">{{ result.error }}</span>
+        </div>
+        {% else %}
+        <div class="bg-gray-50 p-6 rounded-md mb-6">
+            <p class="text-gray-700 whitespace-pre-line">{{ result.content }}</p>
+        </div>
+        
+        <div class="flex flex-wrap gap-4">
+            <a href="{{ url_for('main.post_content_route') }}?content={{ result.content|urlencode }}&platform={{ result.platform }}" class="inline-flex items-center px-4 py-2 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                <svg class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"></path>
+                </svg>
+                Post Now
+            </a>
+            
+            <a href="{{ url_for('main.schedule_content_route') }}?content={{ result.content|urlencode }}&platform={{ result.platform }}" class="inline-flex items-center px-4 py-2 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                <svg class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                Schedule
+            </a>
+            
+            <a href="{{ url_for('main.image_generation') }}?prompt={{ 'Create an image for: '|urlencode }}{{ result.content|truncate(100, true)|urlencode }}" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white font-semibold rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2">
+                <svg class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                </svg>
+                Generate Image
+            </a>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 

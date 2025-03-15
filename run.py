@@ -1,130 +1,153 @@
 #!/usr/bin/env python
 """
-Run the CrewAI Social Media Agent system.
-This script starts all components of the system: web UI, scheduler, and monitor.
+Main script to run the CrewAI Social Media Agent system.
+This script starts all components including the web UI, scheduler, and monitor.
 """
 
 import os
 import sys
-import subprocess
-import time
 import signal
 import atexit
+import subprocess
+import time
+from typing import List
+import multiprocessing
 
 # Add the project root to the Python path
-PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, PROJECT_ROOT)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# Global list to keep track of all processes
-processes = []
+# Import the web UI app factory
+from src.web_ui import create_app
 
-def start_process(script_path, name):
-    """Start a subprocess and add it to the global processes list."""
-    print(f"Starting {name}...")
-    env = os.environ.copy()
-    env['PYTHONPATH'] = PROJECT_ROOT + os.pathsep + env.get('PYTHONPATH', '')
-    
-    process = subprocess.Popen(
-        [sys.executable, script_path],
-        env=env,
-        cwd=PROJECT_ROOT
-    )
-    processes.append((process, name))
-    return process
+# Global list to track all running processes
+processes: List[subprocess.Popen] = []
 
 def cleanup():
-    """Terminate all running processes."""
-    print("\nShutting down all processes...")
-    for process, name in processes:
-        print(f"Terminating {name}...")
-        process.terminate()
-    
-    # Wait for all processes to terminate
-    for process, name in processes:
+    """Clean up function to terminate all running processes."""
+    for process in processes:
         try:
-            process.wait(timeout=5)
-            print(f"{name} terminated successfully.")
-        except subprocess.TimeoutExpired:
-            print(f"{name} did not terminate gracefully, killing...")
-            process.kill()
+            process.terminate()
+            process.wait(timeout=5)  # Wait for process to terminate
+        except Exception as e:
+            print(f"Error terminating process: {e}")
+            try:
+                process.kill()  # Force kill if termination fails
+            except Exception as e:
+                print(f"Error killing process: {e}")
 
-def signal_handler(sig, frame):
-    """Handle termination signals."""
-    print("\nReceived termination signal.")
+def signal_handler(signum, frame):
+    """Handle termination signals by cleaning up processes."""
+    print("\nReceived termination signal. Cleaning up...")
     cleanup()
     sys.exit(0)
 
+def start_process(cmd: List[str], name: str) -> subprocess.Popen:
+    """
+    Start a new process with the given command.
+    
+    Args:
+        cmd: Command to run as a list of strings
+        name: Name of the process for logging
+    
+    Returns:
+        The started process
+    """
+    try:
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True
+        )
+        processes.append(process)
+        print(f"Started {name} (PID: {process.pid})")
+        return process
+    except Exception as e:
+        print(f"Error starting {name}: {e}")
+        return None
+
+def monitor_processes():
+    """Monitor running processes and restart them if they crash."""
+    restart_delays = {}  # Track restart attempts for each process
+    
+    while True:
+        for process in processes[:]:  # Create a copy of the list to iterate over
+            if process.poll() is not None:  # Process has terminated
+                cmd = process.args
+                cmd_str = " ".join(cmd)
+                processes.remove(process)
+                
+                # Implement exponential backoff for restarts
+                if cmd_str in restart_delays:
+                    # Increase delay up to a maximum of 60 seconds
+                    restart_delays[cmd_str] = min(restart_delays[cmd_str] * 2, 60)
+                else:
+                    restart_delays[cmd_str] = 1  # Start with 1 second delay
+                
+                delay = restart_delays[cmd_str]
+                print(f"Process {process.pid} terminated. Waiting {delay}s before restarting...")
+                
+                # Wait before restarting
+                time.sleep(delay)
+                
+                new_process = start_process(cmd, f"Process {cmd}")
+                if new_process is None:
+                    print(f"Failed to restart process: {cmd}")
+        
+        # Sleep to avoid high CPU usage
+        time.sleep(1)
+
+def run_web_ui():
+    """Run the Flask web UI."""
+    app = create_app()
+    app.run(host='0.0.0.0', port=5001, debug=False)
+
 def main():
-    """Run the entire social media agent system."""
-    # Register cleanup function and signal handlers
-    atexit.register(cleanup)
+    """Main function to run the entire system."""
+    # Register signal handlers and cleanup function
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
+    atexit.register(cleanup)
     
-    print("🚀 Starting CrewAI Social Media Agent system...")
-    
-    # First, verify the setup
-    print("\n🔍 Verifying setup...")
-    verify_result = subprocess.run(
-        [sys.executable, "verify_setup.py"],
-        env={'PYTHONPATH': PROJECT_ROOT},
-        capture_output=True,
-        text=True,
-        check=False
-    )
-    
-    # Print the verification output
-    if verify_result.stdout:
-        print(verify_result.stdout, end='')
-    if verify_result.stderr:
-        print(verify_result.stderr, end='')
-    
-    if verify_result.returncode != 0:
-        print("\n❌ Setup verification failed. Please fix the issues above before continuing.")
-        return
-    
-    # Start the web UI
-    web_ui_process = start_process("web_ui.py", "Web UI")
-    print("✅ Web UI started at http://localhost:5001")
-    
-    # Start the scheduler
-    scheduler_process = start_process("src/scheduler.py", "Scheduler")
-    print("✅ Scheduler started")
-    
-    # Start the monitor
-    monitor_process = start_process("src/monitor.py", "Monitor")
-    print("✅ Monitor started")
-    
-    print("\n🎉 All systems are running!")
-    print("Access the web interface at: http://localhost:5001")
-    print("Press Ctrl+C to stop all processes.")
-    
-    # Keep the main process running and monitor child processes
     try:
-        while True:
-            # Check if any process has terminated unexpectedly
-            for i, (process, name) in enumerate(processes):
-                if process.poll() is not None:
-                    print(f"\n⚠️ {name} has terminated unexpectedly (exit code: {process.returncode}).")
-                    if process.returncode != 0:  # Only show error output for non-zero exit codes
-                        print(f"\nError output from {name}:")
-                        print(process.stderr.read().decode() if process.stderr else "No error output available")
-                    print(f"Restarting {name}...")
-                    
-                    # Determine which script to restart
-                    script_path = "web_ui.py" if name == "Web UI" else f"src/{name.lower()}.py"
-                    
-                    # Restart the process
-                    new_process = start_process(script_path, name)
-                    
-                    # Replace the old process in the list
-                    processes[i] = (new_process, name)
-            
-            # Sleep to avoid high CPU usage
-            time.sleep(5)
+        # Verify setup first
+        verify_process = subprocess.run(
+            [sys.executable, 'verify_setup.py'],
+            check=True,
+            capture_output=True,
+            text=True
+        )
+        print("Setup verification completed successfully.")
+        
+        # Start the web UI in a separate process
+        web_ui_process = multiprocessing.Process(target=run_web_ui)
+        web_ui_process.start()
+        print("Web UI started on http://localhost:5001")
+        
+        # Start the scheduler
+        scheduler_process = start_process(
+            [sys.executable, 'src/scheduler.py'],
+            "Scheduler"
+        )
+        
+        # Start the monitor
+        monitor_process = start_process(
+            [sys.executable, 'src/monitor.py'],
+            "Monitor"
+        )
+        
+        # Monitor processes and restart them if they crash
+        monitor_processes()
+        
+    except subprocess.CalledProcessError as e:
+        print(f"Setup verification failed: {e.stdout}\n{e.stderr}")
+        sys.exit(1)
     except KeyboardInterrupt:
-        print("\nReceived keyboard interrupt.")
+        print("\nReceived keyboard interrupt. Shutting down...")
+    except Exception as e:
+        print(f"Error running the system: {e}")
+    finally:
         cleanup()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main() 

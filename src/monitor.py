@@ -1,8 +1,15 @@
+#!/usr/bin/env python
+"""
+Monitor for the CrewAI Social Media Agent.
+This script monitors engagement on social media posts and generates responses.
+"""
+
 import os
-import json
+import sys
 import time
-import datetime
+import json
 import logging
+import datetime
 from typing import Dict, Any, List
 from src.tools.linkedin_tool import LinkedInTool
 from src.tools.twitter_tool import TwitterTool
@@ -34,8 +41,17 @@ class SocialMediaMonitor:
         """
         self.schedule_file = schedule_file
         self.check_interval = check_interval
-        self.linkedin_tool = LinkedInTool()
-        self.twitter_tool = TwitterTool()
+        
+        try:
+            self.linkedin_tool = LinkedInTool()
+            self.twitter_tool = TwitterTool()
+            logger.info("Successfully initialized social media tools")
+        except Exception as e:
+            logger.error(f"Error initializing social media tools: {str(e)}")
+            # Still create the monitor but disable engagement checking
+            self.linkedin_tool = None
+            self.twitter_tool = None
+            
         self.comments_dir = "comments"
         self.responses_dir = "responses"
         
@@ -74,14 +90,21 @@ class SocialMediaMonitor:
         Returns:
             A list of comments
         """
-        if platform == "linkedin":
-            result = self.linkedin_tool.get_post_comments(post_id)
-            if result.get("success", False):
-                return result.get("comments", [])
-        elif platform == "twitter":
-            result = self.twitter_tool.get_tweet_replies(post_id)
-            if result.get("success", False):
-                return result.get("replies", [])
+        if self.linkedin_tool is None or self.twitter_tool is None:
+            logger.warning("Social media tools not initialized, cannot get comments")
+            return []
+            
+        try:
+            if platform == "linkedin":
+                result = self.linkedin_tool.get_post_comments(post_id)
+                if result.get("success", False):
+                    return result.get("comments", [])
+            elif platform == "twitter":
+                result = self.twitter_tool.get_tweet_replies(post_id)
+                if result.get("success", False):
+                    return result.get("replies", [])
+        except Exception as e:
+            logger.error(f"Error getting comments from {platform}: {str(e)}")
                 
         return []
         
@@ -165,55 +188,76 @@ class SocialMediaMonitor:
         
         try:
             while True:
-                # Load the schedule
-                schedule = self._load_schedule()
-                
-                # Check for published posts
-                for post in schedule.get("scheduled_posts", []):
-                    if post.get("status") == "published" and post.get("platform_post_id"):
-                        platform = post.get("platform", "").lower()
-                        post_id = post.get("platform_post_id")
-                        
-                        logger.info(f"Checking for comments on {platform} post: {post_id}")
-                        
-                        # Get the comments
-                        comments = self._get_comments(platform, post_id)
-                        
-                        # Check if there are new comments
-                        if self._has_new_comments(post_id, comments):
-                            logger.info(f"New comments found on {platform} post: {post_id}")
-                            
-                            # Save the comments
-                            comments_file = self._save_comments(post_id, comments)
-                            
-                            if comments_file:
-                                # Generate responses
-                                try:
-                                    responses = respond_to_comments(platform, post_id, comments)
+                try:
+                    # Load the schedule
+                    schedule = self._load_schedule()
+                    
+                    # Check for published posts
+                    for post in schedule.get("scheduled_posts", []):
+                        try:
+                            if post.get("status") == "published" and post.get("platform_post_id"):
+                                platform = post.get("platform", "").lower()
+                                post_id = post.get("platform_post_id")
+                                
+                                logger.info(f"Checking for comments on {platform} post: {post_id}")
+                                
+                                # Get the comments
+                                comments = self._get_comments(platform, post_id)
+                                
+                                # Check if there are new comments
+                                if self._has_new_comments(post_id, comments):
+                                    logger.info(f"New comments found on {platform} post: {post_id}")
                                     
-                                    # Save the responses
-                                    responses_file = self._save_responses(post_id, responses)
+                                    # Save the comments
+                                    comments_file = self._save_comments(post_id, comments)
                                     
-                                    if responses_file:
-                                        logger.info(f"Generated responses for {platform} post: {post_id}")
-                                        logger.info(f"Responses saved to: {responses_file}")
-                                except Exception as e:
-                                    logger.error(f"Error generating responses: {str(e)}")
-                        else:
-                            logger.info(f"No new comments on {platform} post: {post_id}")
-                
-                # Sleep for the check interval
-                time.sleep(self.check_interval)
+                                    if comments_file:
+                                        # Generate responses
+                                        try:
+                                            responses = respond_to_comments(platform, post_id, comments)
+                                            
+                                            # Save the responses
+                                            responses_file = self._save_responses(post_id, responses)
+                                            
+                                            if responses_file:
+                                                logger.info(f"Generated responses for {platform} post: {post_id}")
+                                                logger.info(f"Responses saved to: {responses_file}")
+                                        except Exception as e:
+                                            logger.error(f"Error generating responses: {str(e)}")
+                                else:
+                                    logger.info(f"No new comments on {platform} post: {post_id}")
+                        except Exception as e:
+                            logger.error(f"Error processing post: {str(e)}")
+                            continue
+                    
+                    # Sleep for the check interval
+                    time.sleep(self.check_interval)
+                except Exception as e:
+                    logger.error(f"Error in monitor loop: {str(e)}")
+                    time.sleep(self.check_interval)  # Sleep and try again
                 
         except KeyboardInterrupt:
             logger.info("Stopping social media monitor")
         except Exception as e:
             logger.error(f"Error in monitor: {str(e)}")
-            
+            # Keep the process running instead of crashing
+            time.sleep(60)
+            self.run()  # Restart the monitor
+
 def main():
     """Main function to run the monitor."""
-    monitor = SocialMediaMonitor()
-    monitor.run()
-    
+    try:
+        monitor = SocialMediaMonitor()
+        monitor.run()
+    except Exception as e:
+        logger.error(f"Fatal error in monitor main: {str(e)}")
+        # Sleep before exiting to prevent rapid restarts
+        time.sleep(60)
+
 if __name__ == "__main__":
-    main() 
+    try:
+        main()
+    except Exception as e:
+        logger.error(f"Unhandled exception in monitor: {str(e)}")
+        # Sleep before exiting to prevent rapid restarts
+        time.sleep(60) 

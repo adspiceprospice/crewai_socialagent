@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Generate Content - CrewAI Social Media Agent{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1 class="mt-4 mb-4">Generate Content</h1>
+
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h2 class="h5 mb-0">Content Generation Form</h2>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('main.content_generation') }}">
+                {{ csrf_token() }}
+                <div class="mb-3">
+                    <label for="topic" class="form-label">Topic</label>
+                    <input type="text" class="form-control" id="topic" name="topic" required>
+                    <div class="form-text">Enter the topic for your content.</div>
+                </div>
+                <div class="mb-3">
+                    <label for="platform" class="form-label">Platform</label>
+                    <select class="form-select" id="platform" name="platform" required>
+                        <option value="" selected disabled>Select a platform</option>
+                        <option value="linkedin">LinkedIn</option>
+                        <option value="twitter">Twitter</option>
+                    </select>
+                    <div class="form-text">Select the platform where you want to post the content.</div>
+                </div>
+                <div class="mb-3">
+                    <label for="content_type" class="form-label">Content Type</label>
+                    <select class="form-select" id="content_type" name="content_type" required>
+                        <option value="" selected disabled>Select a content type</option>
+                        <option value="post">Post</option>
+                        <option value="article">Article</option>
+                        <option value="thread">Thread</option>
+                    </select>
+                    <div class="form-text">Select the type of content you want to generate.</div>
+                </div>
+                <button type="submit" class="btn btn-primary">Generate Content</button>
+            </form>
+        </div>
+    </div>
+
+    {% if result %}
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h2 class="h5 mb-0">Generated Content</h2>
+        </div>
+        <div class="card-body">
+            <div class="alert alert-success">
+                <h3 class="h6">Content for {{ platform|default('your platform') }}</h3>
+                <pre class="bg-light p-3 rounded">{{ result }}</pre>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %} 

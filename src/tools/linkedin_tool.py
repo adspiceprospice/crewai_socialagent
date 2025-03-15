@@ -24,6 +24,29 @@ class LinkedInTool(BaseTool):
         self._access_token = LINKEDIN_ACCESS_TOKEN
         self._api_url = "https://api.linkedin.com/v2"
         
+    def _run(
+        self, 
+        text: str, 
+        image_path: Optional[str] = None,
+        schedule_time: Optional[str] = None
+    ) -> str:
+        """
+        Required method from BaseTool. Executes the LinkedIn posting operation.
+        
+        Args:
+            text: The text content to post
+            image_path: Optional path to an image to include in the post
+            schedule_time: Optional ISO-8601 timestamp for scheduling the post
+            
+        Returns:
+            str: Result message of the posting operation
+        """
+        result = self._execute(text, image_path, schedule_time)
+        if result.get("success", False):
+            return f"Successfully posted to LinkedIn. Post ID: {result.get('post_id', 'N/A')}"
+        else:
+            return f"Error posting to LinkedIn: {result.get('error', 'Unknown error')}"
+    
     def _execute(
         self, 
         text: str, 
@@ -274,18 +297,4 @@ class LinkedInTool(BaseTool):
             return {
                 "success": False,
                 "error": f"Error getting post comments: {str(e)}"
-            }
-
-    def _run(self, text: str, image_path: Optional[str] = None, schedule_time: Optional[str] = None) -> Dict[str, Any]:
-        """
-        Required method from BaseTool. Executes the LinkedIn posting operation.
-        
-        Args:
-            text: The text content to post
-            image_path: Optional path to an image to include in the post
-            schedule_time: Optional ISO-8601 timestamp for scheduling the post
-            
-        Returns:
-            Dictionary containing the result of the posting operation
-        """
-        return self._execute(text, image_path, schedule_time) 
+            } 
