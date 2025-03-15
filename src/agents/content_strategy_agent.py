@@ -3,6 +3,8 @@ from crewai import Agent
 from langchain.tools import Tool
 from langchain_openai import ChatOpenAI
 import logging
+import os
+from openai import OpenAI
 
 # Configure logging
 logging.basicConfig(
@@ -12,7 +14,7 @@ logging.basicConfig(
 logger = logging.getLogger("content_strategy_agent")
 
 class ContentStrategyAgent(Agent):
-    def __init__(self, llm: ChatOpenAI, tools: List[Tool] = None):
+    def __init__(self, llm: ChatOpenAI = None, tools: List[Tool] = None):
         logger.info("Initializing ContentStrategyAgent")
         try:
             super().__init__(
@@ -26,6 +28,8 @@ class ContentStrategyAgent(Agent):
                 llm=llm,
                 verbose=True
             )
+            # Initialize direct OpenAI client
+            self.openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
             logger.info("ContentStrategyAgent initialized successfully")
         except Exception as e:
             logger.error(f"Error initializing ContentStrategyAgent: {str(e)}")
@@ -46,10 +50,13 @@ class ContentStrategyAgent(Agent):
         logger.info(f"Creating content strategy for industry: {industry}, target_audience: {target_audience}")
         try:
             # Format the goals into a readable string
-            goals_str = "\n- ".join(goals)
+            if isinstance(goals, list):
+                goals_str = "\n- ".join(goals)
+            else:
+                goals_str = goals  # In case goals is already a string
             
-            # Create the task prompt
-            task = f"""
+            # Create a direct prompt for the LLM
+            prompt = f"""
             Create a comprehensive content strategy for:
             Industry: {industry}
             Target Audience: {target_audience}
@@ -68,9 +75,21 @@ class ContentStrategyAgent(Agent):
             resonates with the target audience, and helps achieve the specified goals.
             """
             
-            # Execute the task using the agent's capabilities
-            logger.info("Executing content strategy task")
-            result = self.execute_task(task)
+            # Use OpenAI client directly
+            logger.info("Creating content strategy using OpenAI directly")
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4-turbo-preview",
+                messages=[
+                    {"role": "system", "content": "You are an expert content strategist specializing in social media marketing."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=2000
+            )
+            
+            # Extract the content from response
+            result = response.choices[0].message.content
+            
             logger.info("Content strategy created successfully")
             return result
         except Exception as e:

@@ -9,6 +9,8 @@ from src.tools.scheduler_tool import SchedulerTool
 from datetime import datetime
 from langchain_openai import ChatOpenAI
 from .content_strategy_agent import ContentStrategyAgent
+import os
+from openai import OpenAI
 
 # Configure logging
 logging.basicConfig(
@@ -50,9 +52,9 @@ class SocialMediaAgent:
         self.llm = llm
         
         try:
-            # Initialize content strategy agent
-            logger.info("Initializing ContentStrategyAgent")
-            self.content_strategy_agent = ContentStrategyAgent(llm=self.llm)
+            # Initialize OpenAI client directly for backup
+            self.openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            logger.info("OpenAI client initialized")
             
             # Initialize tools
             logger.info("Initializing tools")
@@ -92,13 +94,9 @@ class SocialMediaAgent:
             logger.error(f"Error during SocialMediaAgent initialization: {str(e)}")
             # Continue with partial initialization to prevent crashes
 
-    def get_agent(self) -> Agent:
-        """Get the CrewAI agent instance."""
-        return self.agent
-        
     def create_content_strategy(self, industry: str, target_audience: str, goals: List[str]) -> str:
         """
-        Create a content strategy using the ContentStrategyAgent.
+        Create a content strategy.
         
         Args:
             industry (str): The industry or business domain
@@ -110,21 +108,57 @@ class SocialMediaAgent:
         """
         logger.info(f"Creating content strategy for {industry}, target audience: {target_audience}")
         try:
-            if not self.content_strategy_agent:
-                logger.error("ContentStrategyAgent not initialized")
-                return "Error: Content strategy agent not initialized"
-                
-            result = self.content_strategy_agent.create_content_strategy(
-                industry=industry,
-                target_audience=target_audience,
-                goals=goals
+            # Format the goals into a readable string
+            if isinstance(goals, str):
+                # If goals is a string, split it into a list
+                goals_list = [goal.strip() for goal in goals.split(',') if goal.strip()]
+            else:
+                goals_list = goals
+            
+            goals_str = "\n- ".join(goals_list)
+            
+            # Create a direct prompt for OpenAI
+            prompt = f"""
+            Create a comprehensive content strategy for:
+            Industry: {industry}
+            Target Audience: {target_audience}
+            Goals:
+            - {goals_str}
+            
+            The strategy should include:
+            1. Content themes and topics
+            2. Content types and formats
+            3. Posting frequency and timing
+            4. Platform-specific recommendations
+            5. Engagement strategies
+            6. Success metrics and KPIs
+            
+            Please provide a detailed, actionable strategy that aligns with the industry, 
+            resonates with the target audience, and helps achieve the specified goals.
+            Format your response with clear section headers and bullet points for readability.
+            """
+            
+            # Use OpenAI client directly
+            logger.info("Creating content strategy using OpenAI directly")
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are an expert content strategist specializing in social media marketing."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=2000
             )
+            
+            # Extract the content from response
+            result = response.choices[0].message.content
+            
             logger.info("Content strategy created successfully")
             return result
         except Exception as e:
             logger.error(f"Error creating content strategy: {str(e)}")
             return f"Error creating content strategy: {str(e)}"
-        
+
     def generate_content(self, topic: str, platform: str, content_type: str) -> dict:
         """
         Generate content based on the given parameters.
@@ -139,9 +173,32 @@ class SocialMediaAgent:
         """
         logger.info(f"Generating content for topic: {topic}, platform: {platform}, type: {content_type}")
         try:
-            # For demonstration purposes, return a mock response
+            # Create prompt for OpenAI
+            prompt = f"""
+            Generate {content_type} content for {platform} about the topic: {topic}.
+            
+            Make it engaging, relevant to the platform, and optimized for user engagement.
+            For LinkedIn, maintain a professional tone. For Twitter, keep it concise and to the point.
+            
+            Include relevant hashtags for the platform at the end if appropriate.
+            """
+            
+            # Use OpenAI client directly
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4-turbo-preview",
+                messages=[
+                    {"role": "system", "content": "You are an experienced social media content creator."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=1000
+            )
+            
+            # Extract the content
+            content = response.choices[0].message.content
+            
             return {
-                "content": f"This is a sample {content_type} for {platform} about {topic}.",
+                "content": content,
                 "platform": platform,
                 "type": content_type,
                 "created_at": datetime.now().isoformat()
@@ -151,7 +208,7 @@ class SocialMediaAgent:
             return {
                 "error": f"Error generating content: {str(e)}"
             }
-        
+
     def schedule_content(self, content: str, platform: str, schedule_time: datetime, image_path: Optional[str] = None) -> dict:
         """
         Schedule content for posting.
@@ -185,7 +242,7 @@ class SocialMediaAgent:
         except Exception as e:
             logger.error(f"Error scheduling content: {str(e)}")
             return {"error": f"Error scheduling content: {str(e)}"}
-        
+
     def post_content(self, content: str, platform: str, image_path: Optional[str] = None) -> dict:
         """
         Post content immediately.
@@ -220,7 +277,7 @@ class SocialMediaAgent:
         except Exception as e:
             logger.error(f"Error posting content: {str(e)}")
             return {"error": f"Error posting content: {str(e)}"}
-        
+
     def generate_image(self, prompt: str, reference_image_path: Optional[str] = None) -> str:
         """
         Generate an image based on the prompt.
@@ -250,7 +307,7 @@ class SocialMediaAgent:
         except Exception as e:
             logger.error(f"Error generating image: {str(e)}")
             return f"Error generating image: {str(e)}"
-        
+
     def check_engagement(self, platform: str, post_id: str) -> dict:
         """
         Check engagement metrics for a post.
@@ -280,7 +337,7 @@ class SocialMediaAgent:
         except Exception as e:
             logger.error(f"Error checking engagement: {str(e)}")
             return {"error": f"Error checking engagement: {str(e)}"}
-        
+
     def respond_to_comments(self, platform: str, post_id: str, comments: List[dict]) -> List[dict]:
         """
         Generate responses to comments on a post.
@@ -295,14 +352,38 @@ class SocialMediaAgent:
         """
         logger.info(f"Responding to comments for {platform} post: {post_id}")
         try:
-            # For demonstration purposes, generate mock responses
             responses = []
+            
             for comment in comments:
+                # Create a prompt for responding to the comment
+                comment_text = comment.get('text', '')
+                prompt = f"""
+                Generate a friendly, authentic response to this comment on a {platform} post:
+                
+                Comment: "{comment_text}"
+                
+                Make your response sound human, personable, and on-brand. Avoid generic responses.
+                Keep it fairly brief and conversational.
+                """
+                
+                # Use OpenAI to generate a response
+                response = self.openai_client.chat.completions.create(
+                    model="gpt-4-turbo-preview",
+                    messages=[
+                        {"role": "system", "content": "You are a friendly social media manager responding to comments."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.8,
+                    max_tokens=150
+                )
+                
+                # Add the response to our list
                 responses.append({
                     "comment_id": comment.get("id"),
-                    "response": f"Thank you for your comment: '{comment.get('text')}'",
+                    "response": response.choices[0].message.content.strip(),
                     "timestamp": datetime.now().isoformat()
                 })
+                
             return responses
         except Exception as e:
             logger.error(f"Error responding to comments: {str(e)}")
