@@ -1,1 +1,86 @@
-{"scheduled_posts": []}
+{
+  "scheduled_posts": [
+    {
+      "id": "twitter_1742059590",
+      "content": "Thread: Dive into the latest ASRS technology innovations that are transforming logistics! \ud83d\ude80 Here\u2019s what\u2019s new: 1/5 [link] #ASRS #Logistics",
+      "platform": "twitter",
+      "schedule_time": "2025-03-15T14:30:00",
+      "image_path": null,
+      "post_type": "regular",
+      "status": "published",
+      "created_at": "2025-03-15T18:26:30.944302",
+      "published_at": "2025-03-15T18:26:37.534668",
+      "platform_post_id": "1900961847987368436"
+    },
+    {
+      "id": "twitter_1742059590",
+      "content": "Looking to optimize your warehouse operations? Check out how ASRS implementations have led to success for companies worldwide. \ud83c\udf0d [link] #ASRS #WarehouseOptimization",
+      "platform": "twitter",
+      "schedule_time": "2025-03-17T11:00:00",
+      "image_path": null,
+      "post_type": "regular",
+      "status": "scheduled",
+      "created_at": "2025-03-15T18:26:30.947774"
+    },
+    {
+      "id": "linkedin_1742059590",
+      "content": "Is an ASRS system worth the investment? Our latest analysis breaks down the cost-benefit ratio, detailing both the tangible and intangible benefits. [link] #CostBenefit #ASRS",
+      "platform": "linkedin",
+      "schedule_time": "2025-03-18T13:00:00",
+      "image_path": null,
+      "post_type": "regular",
+      "status": "scheduled",
+      "created_at": "2025-03-15T18:26:30.947928"
+    },
+    {
+      "id": "twitter_1742059590",
+      "content": "Thread: Cost vs. Benefit - Analyzing the ROI of ASRS systems for modern businesses. \ud83d\udcca Do the benefits outweigh the costs? 1/4 [link] #ASRS #ROI",
+      "platform": "twitter",
+      "schedule_time": "2025-03-19T10:45:00",
+      "image_path": null,
+      "post_type": "regular",
+      "status": "scheduled",
+      "created_at": "2025-03-15T18:26:30.948076"
+    },
+    {
+      "id": "linkedin_1742059590",
+      "content": "What does the future hold for automation? Explore the emerging trends and technologies in the ASRS space that are set to shape tomorrow. [link] #Automation #FutureTrends",
+      "platform": "linkedin",
+      "schedule_time": "2025-03-20T09:00:00",
+      "image_path": null,
+      "post_type": "regular",
+      "status": "scheduled",
+      "created_at": "2025-03-15T18:26:30.948216"
+    },
+    {
+      "id": "twitter_1742059590",
+      "content": "The future of automation: How ASRS is paving the way for smarter supply chains. \ud83e\udd16\ud83d\udd17 [link] #ASRS #SmartSupplyChain",
+      "platform": "twitter",
+      "schedule_time": "2025-03-21T15:00:00",
+      "image_path": null,
+      "post_type": "regular",
+      "status": "scheduled",
+      "created_at": "2025-03-15T18:26:30.948359"
+    },
+    {
+      "id": "linkedin_1742059590",
+      "content": "Integrating ASRS with existing systems can be seamless. Here\u2019s a guide on how to ensure smooth integration and maximize efficiency. [link] #Integration #ASRS",
+      "platform": "linkedin",
+      "schedule_time": "2025-03-22T11:30:00",
+      "image_path": null,
+      "post_type": "regular",
+      "status": "scheduled",
+      "created_at": "2025-03-15T18:26:30.949052"
+    },
+    {
+      "id": "twitter_1742059590",
+      "content": "Effortlessly integrate ASRS into your existing operations. Here's how you can do it without disruptions! [link] #ASRS #SystemIntegration",
+      "platform": "twitter",
+      "schedule_time": "2025-03-22T16:30:00",
+      "image_path": null,
+      "post_type": "regular",
+      "status": "scheduled",
+      "created_at": "2025-03-15T18:26:30.949593"
+    }
+  ]
+}
