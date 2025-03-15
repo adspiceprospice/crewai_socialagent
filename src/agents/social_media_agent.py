@@ -117,7 +117,7 @@ class SocialMediaAgent:
             else:
                 goals_list = goals
             
-            goals_str = "\n- ".join(goals_list)
+            goals_str = "\n- " + "\n- ".join(goals_list)
             
             # Create a direct prompt for OpenAI that requests structured output
             prompt = f"""
@@ -207,7 +207,7 @@ class SocialMediaAgent:
                     else:
                         text += f"{types}\n"
             else:
-                text += content_types
+                text += str(content_types)
             text += "\n"
             
             # Platform Recommendations
@@ -218,7 +218,7 @@ class SocialMediaAgent:
                     text += f"### {platform}\n"
                     text += f"{recommendation}\n\n"
             else:
-                text += platforms
+                text += str(platforms)
             text += "\n"
             
             # Posting Schedule
@@ -236,7 +236,7 @@ class SocialMediaAgent:
                 for metric in metrics:
                     text += f"- {metric}\n"
             else:
-                text += metrics
+                text += str(metrics)
             text += "\n\n"
             
             # Action Plan
@@ -246,7 +246,7 @@ class SocialMediaAgent:
                 for i, action in enumerate(action_plan, 1):
                     text += f"{i}. {action}\n"
             else:
-                text += action_plan
+                text += str(action_plan)
                 
             return text
         except Exception as e:
@@ -318,17 +318,32 @@ class SocialMediaAgent:
         """
         logger.info(f"Executing content plan for {time_period}, {content_count} items")
         try:
+            # Handle the case where strategy might be a string (from JSON serialization/deserialization)
+            if isinstance(strategy, str):
+                strategy = json.loads(strategy)
+                
             # Extract key information from the strategy
-            industry = strategy.get('target_audience_analysis', {}).get('demographics', {}).get('industry', 'Unknown')
-            audience = strategy.get('target_audience_analysis', {}).get('demographics', {}).get('roles', ['Unknown'])
-            if isinstance(audience, list):
-                audience = ', '.join(audience)
+            industry = "Unknown"
+            audience = "Unknown"
+            themes_str = "General content"
             
+            # Safely extract target audience analysis
+            if isinstance(strategy.get('target_audience_analysis'), dict):
+                demographics = strategy.get('target_audience_analysis').get('demographics', {})
+                if isinstance(demographics, dict):
+                    industry = demographics.get('industry', 'Unknown')
+                    roles = demographics.get('roles', ['Unknown'])
+                    if isinstance(roles, list):
+                        audience = ', '.join(roles)
+                    else:
+                        audience = str(roles)
+            
+            # Safely extract content themes
             content_themes = strategy.get('content_themes', [])
             if isinstance(content_themes, list):
                 themes_str = '\n- ' + '\n- '.join(content_themes)
             else:
-                themes_str = content_themes
+                themes_str = str(content_themes)
                 
             # Parse time period to determine date range
             start_date = datetime.now()
