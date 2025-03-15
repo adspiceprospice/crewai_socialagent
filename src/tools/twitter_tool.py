@@ -41,7 +41,7 @@ class TwitterTool(BaseTool):
         text: str, 
         image_path: Optional[str] = None,
         schedule_time: Optional[str] = None
-    ) -> Dict[str, Any]:
+    ) -> str:
         """
         Required method from BaseTool. Executes the Twitter posting operation.
         
@@ -51,9 +51,13 @@ class TwitterTool(BaseTool):
             schedule_time: Optional ISO-8601 timestamp for scheduling the post
             
         Returns:
-            Dictionary containing the result of the posting operation
+            str: Result message of the posting operation
         """
-        return self._execute(text, image_path, schedule_time)
+        result = self._execute(text, image_path, schedule_time)
+        if result.get("success", False):
+            return f"Successfully posted to Twitter. Tweet ID: {result.get('tweet_id', 'N/A')}"
+        else:
+            return f"Error posting to Twitter: {result.get('error', 'Unknown error')}"
     
     def _execute(
         self, 
@@ -128,6 +132,7 @@ class TwitterTool(BaseTool):
                 return {
                     "success": True,
                     "tweet_id": data.get("data", {}).get("id"),
+                    "post_id": data.get("data", {}).get("id"),  # Add post_id for consistency with LinkedInTool
                     "message": "Successfully posted to Twitter"
                 }
             else:
@@ -319,4 +324,4 @@ class TwitterTool(BaseTool):
             return {
                 "success": False,
                 "error": f"Error getting tweet replies: {str(e)}"
-            } 
+            }
