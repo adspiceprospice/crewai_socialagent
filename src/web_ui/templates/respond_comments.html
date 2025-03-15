@@ -9,6 +9,20 @@
     <div class="bg-white shadow-md rounded-lg p-6 mb-8">
         <h2 class="text-xl font-semibold text-gray-800 mb-4">Generate AI Responses to User Comments</h2>
         
+        <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
+            <a href="{{ url_for('main.manual_check_comments') }}" class="inline-block bg-blue-500 text-white font-semibold px-4 py-2 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 text-center">
+                <i class="fas fa-search mr-2"></i> Manually Check for Comments
+            </a>
+            
+            <a href="{{ url_for('main.run_monitor') }}" class="inline-block bg-green-500 text-white font-semibold px-4 py-2 rounded-md hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 text-center">
+                <i class="fas fa-play mr-2"></i> Start Monitor
+            </a>
+            
+            <a href="{{ url_for('main.stop_monitor') }}" class="inline-block bg-red-500 text-white font-semibold px-4 py-2 rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 text-center">
+                <i class="fas fa-stop mr-2"></i> Stop Monitor
+            </a>
+        </div>
+        
         <form method="POST" class="space-y-6">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             
@@ -29,6 +43,33 @@
             <button type="submit" class="w-full bg-blue-600 text-white font-semibold px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">Generate Responses</button>
         </form>
     </div>
+    
+    {% if comments %}
+    <div class="bg-white shadow-md rounded-lg p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-800 mb-4">Comments ({{ comments|length }})</h2>
+        
+        <div class="space-y-4">
+            {% for comment in comments %}
+            <div class="border border-gray-200 rounded-lg overflow-hidden">
+                <div class="bg-gray-50 p-4 border-b border-gray-200">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0 mr-3">
+                            <div class="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
+                                <span class="text-gray-700 font-bold">{{ comment.author[0]|upper if comment.author else 'U' }}</span>
+                            </div>
+                        </div>
+                        <div class="flex-1">
+                            <p class="font-medium text-gray-800">{{ comment.author if comment.author else 'Unknown User' }}</p>
+                            <p class="text-gray-600 mt-1">{{ comment.text }}</p>
+                            <p class="text-gray-500 text-sm mt-2">{{ comment.timestamp if comment.timestamp else 'Unknown time' }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
     
     {% if result %}
     <div class="bg-white shadow-md rounded-lg p-6">
@@ -77,4 +118,4 @@
     </div>
     {% endif %}
 </div>
-{% endblock %} 
+{% endblock %}
