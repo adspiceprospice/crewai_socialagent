@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, render_template, flash, redirect, url_for
+from flask import Blueprint, request, jsonify, render_template, flash, redirect, url_for, session
 from src.agents.social_media_agent import SocialMediaAgent
 from langchain_openai import ChatOpenAI
 import os
@@ -61,12 +61,67 @@ def content_strategy():
                 else:
                     # Get the formatted text version for rendering
                     result = strategy_json.get('text_version', '')
+                    
+                    # Store the strategy in session for use in other routes
+                    session['content_strategy'] = strategy_json
+                    
                     flash('Content strategy generated successfully!', 'success')
         except Exception as e:
             logger.error(f"Error in content strategy route: {str(e)}")
             flash(f'Error generating content strategy: {str(e)}', 'danger')
     
     return render_template('content_strategy.html', result=result, strategy_json=strategy_json)
+
+@main.route('/execute-content-plan', methods=['GET', 'POST'])
+def execute_content_plan():
+    """Render the content plan execution page and handle form submission."""
+    result = None
+    
+    # Get the content strategy from the session or form
+    strategy_json = None
+    if 'strategy_json' in request.form:
+        try:
+            strategy_json = json.loads(request.form.get('strategy_json'))
+        except:
+            pass
+    
+    if not strategy_json and 'content_strategy' in session:
+        strategy_json = session.get('content_strategy')
+    
+    if request.method == 'POST':
+        try:
+            # Get form data
+            time_period = request.form.get('time_period')  # e.g., '1 week', '1 month', '3 months'
+            content_count = int(request.form.get('content_count', 10))
+            platforms = request.form.getlist('platforms')  # Multiple select for platforms
+            
+            if not all([time_period, content_count, platforms]):
+                flash('Please fill out all required fields', 'danger')
+            else:
+                if not strategy_json:
+                    flash('Content strategy not found. Please generate a strategy first.', 'danger')
+                    return redirect(url_for('main.content_strategy'))
+                
+                # Generate content based on the strategy
+                result = agent.execute_content_plan(
+                    strategy=strategy_json,
+                    time_period=time_period,
+                    content_count=content_count,
+                    platforms=platforms
+                )
+                
+                # Store the generated content in the session
+                session['generated_content'] = result
+                
+                flash('Content plan executed successfully!', 'success')
+        except Exception as e:
+            logger.error(f"Error in execute content plan route: {str(e)}")
+            flash(f'Error executing content plan: {str(e)}', 'danger')
+    elif request.method == 'GET' and 'generated_content' in session:
+        # If we have previously generated content, display it
+        result = session.get('generated_content')
+    
+    return render_template('execute_content_plan.html', strategy=strategy_json, result=result)
 
 @bp.route('/content-strategy', methods=['POST'])
 def create_content_strategy():
@@ -93,6 +148,55 @@ def create_content_strategy():
         return jsonify({"success": True, "result": result})
     except Exception as e:
         logger.error(f"API error in create_content_strategy: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@bp.route('/schedule-content-item', methods=['POST'])
+def schedule_content_item():
+    """API endpoint to schedule a single content item."""
+    try:
+        data = request.json
+        
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        content_item = data.get('content_item')
+        
+        if not content_item:
+            return jsonify({"error": "Missing content item data"}), 400
+        
+        # Schedule the content
+        result = agent.schedule_content(
+            content=content_item.get('content'),
+            platform=content_item.get('platform'),
+            schedule_time=datetime.fromisoformat(content_item.get('scheduled_time').replace(' ', 'T')),
+            image_path=content_item.get('image_path')
+        )
+        
+        return jsonify({"success": True, "result": result})
+    except Exception as e:
+        logger.error(f"API error in schedule_content_item: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@bp.route('/schedule-all-content', methods=['POST'])
+def schedule_all_content():
+    """API endpoint to schedule multiple content items at once."""
+    try:
+        data = request.json
+        
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        content_items = data.get('content_items', [])
+        
+        if not content_items:
+            return jsonify({"error": "No content items provided"}), 400
+        
+        # Schedule all content items
+        result = agent.schedule_multiple_content(content_items)
+        
+        return jsonify({"success": True, "result": result})
+    except Exception as e:
+        logger.error(f"API error in schedule_all_content: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @bp.route('/generate-content', methods=['POST'])
@@ -330,4 +434,4 @@ def run_monitor():
         logger.error(f"Error triggering monitor: {str(e)}")
         flash(f'Error triggering monitor: {str(e)}', 'danger')
     
-    return redirect(url_for('main.index')) 
+    return redirect(url_for('main.index'))
