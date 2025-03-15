@@ -12,7 +12,8 @@ import signal
 import atexit
 
 # Add the project root to the Python path
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, PROJECT_ROOT)
 
 # Global list to keep track of all processes
 processes = []
@@ -20,7 +21,14 @@ processes = []
 def start_process(script_path, name):
     """Start a subprocess and add it to the global processes list."""
     print(f"Starting {name}...")
-    process = subprocess.Popen([sys.executable, script_path])
+    env = os.environ.copy()
+    env['PYTHONPATH'] = PROJECT_ROOT + os.pathsep + env.get('PYTHONPATH', '')
+    
+    process = subprocess.Popen(
+        [sys.executable, script_path],
+        env=env,
+        cwd=PROJECT_ROOT
+    )
     processes.append((process, name))
     return process
 
@@ -57,10 +65,22 @@ def main():
     
     # First, verify the setup
     print("\n🔍 Verifying setup...")
-    verify_result = subprocess.run([sys.executable, "verify_setup.py"], capture_output=True, text=True)
-    if "All checks passed!" not in verify_result.stdout:
-        print("\n❌ Setup verification failed. Please fix the issues before continuing.")
-        print(verify_result.stdout)
+    verify_result = subprocess.run(
+        [sys.executable, "verify_setup.py"],
+        env={'PYTHONPATH': PROJECT_ROOT},
+        capture_output=True,
+        text=True,
+        check=False
+    )
+    
+    # Print the verification output
+    if verify_result.stdout:
+        print(verify_result.stdout, end='')
+    if verify_result.stderr:
+        print(verify_result.stderr, end='')
+    
+    if verify_result.returncode != 0:
+        print("\n❌ Setup verification failed. Please fix the issues above before continuing.")
         return
     
     # Start the web UI
@@ -79,13 +99,16 @@ def main():
     print("Access the web interface at: http://localhost:5000")
     print("Press Ctrl+C to stop all processes.")
     
-    # Keep the main process running
+    # Keep the main process running and monitor child processes
     try:
         while True:
             # Check if any process has terminated unexpectedly
             for i, (process, name) in enumerate(processes):
                 if process.poll() is not None:
                     print(f"\n⚠️ {name} has terminated unexpectedly (exit code: {process.returncode}).")
+                    if process.returncode != 0:  # Only show error output for non-zero exit codes
+                        print(f"\nError output from {name}:")
+                        print(process.stderr.read().decode() if process.stderr else "No error output available")
                     print(f"Restarting {name}...")
                     
                     # Determine which script to restart

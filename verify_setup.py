@@ -6,6 +6,7 @@ This script checks all required environment variables and dependencies.
 
 import os
 import sys
+import pkg_resources
 from dotenv import load_dotenv
 
 def check_env_variables():
@@ -44,10 +45,9 @@ def check_dependencies():
     """Check if all required Python packages are installed."""
     print("\nChecking required packages:")
     
-    # List of required packages
+    # Required packages to check
     required_packages = [
         'crewai',
-        'crewai-tools',
         'google-generativeai',
         'python-dotenv',
         'requests',
@@ -57,26 +57,42 @@ def check_dependencies():
     all_packages_installed = True
     for package in required_packages:
         try:
-            __import__(package.replace('-', '_'))
+            pkg_resources.require(package)
             print(f"✅ {package} is installed")
-        except ImportError:
+        except (pkg_resources.DistributionNotFound, pkg_resources.VersionConflict):
             print(f"❌ {package} is not installed")
             all_packages_installed = False
+    
+    if not all_packages_installed:
+        print("\n📦 To install missing packages, run:")
+        print("pip install -r requirements.txt")
     
     return all_packages_installed
 
 def main():
     """Run all verification checks."""
-    env_vars_ok = check_env_variables()
-    dependencies_ok = check_dependencies()
-    
-    if env_vars_ok and dependencies_ok:
-        print("\n✅ All checks passed!")
-        return True
-    else:
-        print("\n❌ Some checks failed. Please fix the issues above.")
+    try:
+        env_vars_ok = check_env_variables()
+        print("\n" + "="*50)  # Separator for better readability
+        dependencies_ok = check_dependencies()
+        
+        print("\n" + "="*50)  # Separator for better readability
+        if env_vars_ok and dependencies_ok:
+            print("\n✅ All checks passed!")
+            return True
+        else:
+            print("\n❌ Some checks failed. Please fix the issues above.")
+            if not dependencies_ok:
+                print("\nTo install missing packages:")
+                print("1. Activate your virtual environment (if using one)")
+                print("2. Run: pip install -r requirements.txt")
+                print("3. Run this verification script again")
+            return False
+    except Exception as e:
+        print(f"\n❌ Error during verification: {str(e)}")
         return False
 
 if __name__ == "__main__":
     success = main()
+    print("")  # Add a blank line for better readability
     sys.exit(0 if success else 1) 
