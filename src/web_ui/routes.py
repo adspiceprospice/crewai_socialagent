@@ -1,49 +1,55 @@
-@main.route('/respond-to-comments', methods=['GET', 'POST'])
-def respond_comments_route():
-    """Render the comment response page and handle form submission."""
+@main.route('/schedule-content', methods=['GET', 'POST'])
+def schedule_content_route():
+    """Render the content scheduling page and handle form submission."""
     result = None
-    comments = []
+    scheduled_posts = []
+    
+    # Get all scheduled posts
+    if scheduler_tool:
+        posts_result = scheduler_tool.get_scheduled_posts()
+        if posts_result.get('success', False):
+            scheduled_posts = posts_result.get('scheduled_posts', [])
+            # Sort by schedule time
+            scheduled_posts.sort(key=lambda x: x.get('schedule_time', ''))
     
     if request.method == 'POST':
         try:
+            content = request.form.get('content')
             platform = request.form.get('platform')
-            post_id = request.form.get('post_id')
+            schedule_time = request.form.get('schedule_time')
+            image = request.files.get('image')
             
-            if not all([platform, post_id]):
+            image_path = None
+            if image and image.filename:
+                # Save the image temporarily
+                image_path = os.path.join('uploads', image.filename)
+                os.makedirs('uploads', exist_ok=True)
+                image.save(image_path)
+            
+            if not all([content, platform, schedule_time]):
                 flash('Please fill out all required fields', 'danger')
             else:
-                # Check for comments first
-                if monitor:
-                    comments_result = monitor.check_for_comments(platform, post_id)
-                    if comments_result.get('success', True):
-                        comments = comments_result.get('comments', [])
-                        
-                        if comments:
-                            # Generate responses to the comments
-                            result = agent.respond_to_comments(
-                                platform=platform,
-                                post_id=post_id,
-                                comments=comments
-                            )
-                            flash('Responses generated successfully!', 'success')
-                        else:
-                            flash('No comments found to respond to.', 'info')
-                else:
-                    # Fallback to sample comments if monitor is not available
-                    sample_comments = [
-                        {"id": "comment1", "text": "Great post!"},
-                        {"id": "comment2", "text": "I have a question about this."}
-                    ]
-                    
-                    comments = sample_comments
-                    result = agent.respond_to_comments(
-                        platform=platform,
-                        post_id=post_id,
-                        comments=sample_comments
-                    )
-                    flash('Responses generated successfully (using sample comments)!', 'success')
+                # Convert schedule_time to datetime
+                schedule_datetime = datetime.fromisoformat(schedule_time.replace('Z', '+00:00'))
+                
+                result = agent.schedule_content(
+                    content=content,
+                    platform=platform,
+                    schedule_time=schedule_datetime,
+                    image_path=image_path
+                )
+                
+                # Refresh the scheduled posts list
+                if scheduler_tool:
+                    posts_result = scheduler_tool.get_scheduled_posts()
+                    if posts_result.get('success', False):
+                        scheduled_posts = posts_result.get('scheduled_posts', [])
+                        # Sort by schedule time
+                        scheduled_posts.sort(key=lambda x: x.get('schedule_time', ''))
+                
+                flash('Content scheduled successfully!', 'success')
         except Exception as e:
-            logger.error(f"Error in respond to comments route: {str(e)}")
-            flash(f'Error responding to comments: {str(e)}', 'danger')
+            logger.error(f"Error in schedule content route: {str(e)}")
+            flash(f'Error scheduling content: {str(e)}', 'danger')
     
-    return render_template('respond_comments.html', result=result, comments=comments)
+    return render_template('schedule_content.html', result=result, scheduled_posts=scheduled_posts)
