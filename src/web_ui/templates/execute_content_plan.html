@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block title %}CrewAI Social Media Agent - Execute Content Plan{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold text-gray-800 mb-6">Execute Content Plan</h1>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="p-4 mb-4 {{ 'bg-green-100 text-green-700' if category == 'success' else 'bg-red-100 text-red-700' }} rounded-md">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    {% if strategy %}
+        <div class="bg-white shadow-md rounded-lg p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Content Strategy Overview</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <h3 class="text-lg font-medium text-gray-700 mb-2">Industry</h3>
+                    <p class="bg-gray-50 p-3 rounded-md">
+                        {% if strategy.target_audience_analysis and strategy.target_audience_analysis.demographics %}
+                            {{ strategy.target_audience_analysis.demographics.industry }}
+                        {% else %}
+                            Not specified
+                        {% endif %}
+                    </p>
+                </div>
+                
+                <div>
+                    <h3 class="text-lg font-medium text-gray-700 mb-2">Target Audience</h3>
+                    <div class="bg-gray-50 p-3 rounded-md">
+                        {% if strategy.target_audience_analysis and strategy.target_audience_analysis.demographics and strategy.target_audience_analysis.demographics.roles %}
+                            <ul class="list-disc pl-5">
+                                {% for role in strategy.target_audience_analysis.demographics.roles %}
+                                    <li>{{ role }}</li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p>Not specified</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mb-6">
+                <h3 class="text-lg font-medium text-gray-700 mb-2">Content Themes</h3>
+                <div class="bg-gray-50 p-3 rounded-md">
+                    {% if strategy.content_themes %}
+                        <ul class="list-disc pl-5">
+                            {% for theme in strategy.content_themes %}
+                                <li>{{ theme }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p>No content themes defined</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white shadow-md rounded-lg p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Generate Content Plan</h2>
+            <p class="text-gray-600 mb-6">Fill out the form below to generate a detailed content plan based on your strategy. This will create multiple posts scheduled over your chosen time period.</p>
+            
+            <form method="POST" action="{{ url_for('main.execute_content_plan') }}" class="space-y-6">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <input type="hidden" name="strategy_json" value="{{ strategy|tojson }}">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="time_period" class="block text-sm font-medium text-gray-700 mb-1">Time Period</label>
+                        <select id="time_period" name="time_period" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="1 week">1 Week</option>
+                            <option value="2 weeks">2 Weeks</option>
+                            <option value="1 month" selected>1 Month</option>
+                            <option value="3 months">3 Months</option>
+                        </select>
+                        <p class="mt-1 text-sm text-gray-500">Period for which to generate content</p>
+                    </div>
+                    
+                    <div>
+                        <label for="content_count" class="block text-sm font-medium text-gray-700 mb-1">Number of Content Pieces</label>
+                        <input type="number" id="content_count" name="content_count" min="1" max="50" value="10" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <p class="mt-1 text-sm text-gray-500">How many content pieces to generate</p>
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Platforms</label>
+                    <div class="space-y-2">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="platform_linkedin" name="platforms" value="linkedin" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" checked>
+                            <label for="platform_linkedin" class="ml-2 block text-sm text-gray-700">LinkedIn</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" id="platform_twitter" name="platforms" value="twitter" class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" checked>
+                            <label for="platform_twitter" class="ml-2 block text-sm text-gray-700">Twitter/X</label>
+                        </div>
+                    </div>
+                    <p class="mt-1 text-sm text-gray-500">Select platforms for content generation</p>
+                </div>
+                
+                <button type="submit" class="w-full bg-blue-600 text-white font-semibold px-4 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                    Generate Content Plan
+                </button>
+            </form>
+        </div>
+    {% else %}
+        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-8">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm text-yellow-700">
+                        No content strategy found. Please <a href="{{ url_for('main.content_strategy') }}" class="font-medium underline text-yellow-700 hover:text-yellow-600">generate a content strategy</a> first.
+                    </p>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    
+    {% if result %}
+        <div class="bg-white shadow-md rounded-lg p-6">
+            <h2 class="text-xl font-semibold text-gray-800 mb-6">Generated Content Plan</h2>
+            
+            {% if result.plan_overview %}
+                <div class="bg-gray-50 p-4 rounded-md mb-6">
+                    <h3 class="text-lg font-medium text-gray-700 mb-3">Plan Overview</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Period</p>
+                            <p>{{ result.plan_overview.start_date }} to {{ result.plan_overview.end_date }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Industry</p>
+                            <p>{{ result.plan_overview.industry }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-500">Platform Distribution</p>
+                            <ul>
+                                {% for platform, count in result.plan_overview.platform_distribution.items() %}
+                                    <li>{{ platform }}: {{ count }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+            
+            {% if result.content_items %}
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Platform</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Content</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for item in result.content_items %}
+                                <tr>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ item.scheduled_time }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ item.platform }}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ item.content_type }}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-500">
+                                        <div class="max-h-24 overflow-y-auto">{{ item.content }}</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                        <button onclick="scheduleContent('{{ item.id }}')" class="text-blue-600 hover:text-blue-900 mr-2">Schedule</button>
+                                        <button onclick="editContent('{{ item.id }}')" class="text-green-600 hover:text-green-900">Edit</button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="mt-6 flex justify-center">
+                    <button onclick="scheduleAllContent()" class="bg-blue-600 text-white font-semibold px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                        Schedule All Content
+                    </button>
+                </div>
+                
+                <script>
+                    // Store all content items in a variable for easy access
+                    const contentItems = {{ result.content_items|tojson }};
+                    
+                    function scheduleContent(itemId) {
+                        const item = contentItems.find(item => item.id === itemId);
+                        if (!item) {
+                            alert('Content item not found');
+                            return;
+                        }
+                        
+                        // Send AJAX request to schedule this item
+                        fetch('/api/schedule-content-item', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': '{{ csrf_token() }}'
+                            },
+                            body: JSON.stringify({
+                                content_item: item
+                            })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.error) {
+                                alert('Error: ' + data.error);
+                            } else {
+                                alert('Content scheduled successfully');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('An error occurred while scheduling content');
+                        });
+                    }
+                    
+                    function editContent(itemId) {
+                        const item = contentItems.find(item => item.id === itemId);
+                        if (!item) {
+                            alert('Content item not found');
+                            return;
+                        }
+                        
+                        // For now, just show a simple prompt to edit the content
+                        const newContent = prompt('Edit content:', item.content);
+                        if (newContent && newContent !== item.content) {
+                            item.content = newContent;
+                            // Refresh the display (in a real implementation, you might want to update the DOM)
+                            alert('Content updated. Please note that changes are only temporary until scheduled.');
+                        }
+                    }
+                    
+                    function scheduleAllContent() {
+                        if (!confirm('Are you sure you want to schedule all content items?')) {
+                            return;
+                        }
+                        
+                        // Send AJAX request to schedule all items
+                        fetch('/api/schedule-all-content', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': '{{ csrf_token() }}'
+                            },
+                            body: JSON.stringify({
+                                content_items: contentItems
+                            })
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.error) {
+                                alert('Error: ' + data.error);
+                            } else {
+                                const successCount = data.result.success.length;
+                                const failedCount = data.result.failed.length;
+                                alert(`Scheduled ${successCount} items successfully. ${failedCount} items failed.`);
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('An error occurred while scheduling content');
+                        });
+                    }
+                </script>
+            {% else %}
+                <div class="text-center py-8">
+                    <p class="text-gray-500">No content items generated yet.</p>
+                </div>
+            {% endif %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
