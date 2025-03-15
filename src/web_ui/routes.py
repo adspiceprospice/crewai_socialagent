@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, render_template, flash, redirect, url_for, session
 from src.agents.social_media_agent import SocialMediaAgent
 from src.tools.scheduler_tool import SchedulerTool
+from src.monitor import SocialMediaMonitor
 from langchain_openai import ChatOpenAI
 import os
 import subprocess
@@ -29,11 +30,13 @@ try:
     )
     agent = SocialMediaAgent(llm=llm)
     scheduler_tool = SchedulerTool()
+    monitor = SocialMediaMonitor()
     logger.info("SocialMediaAgent initialized in routes.py")
 except Exception as e:
     logger.error(f"Error initializing agent in routes.py: {str(e)}")
     agent = None
     scheduler_tool = None
+    monitor = None
 
 @main.route('/')
 def index():
@@ -203,6 +206,31 @@ def schedule_all_content():
         return jsonify({"success": True, "result": result})
     except Exception as e:
         logger.error(f"API error in schedule_all_content: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@bp.route('/check-post-comments', methods=['POST'])
+def check_post_comments():
+    """API endpoint to check for comments on a post."""
+    try:
+        data = request.json
+        
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+        
+        platform = data.get('platform')
+        post_id = data.get('post_id')
+        
+        if not all([platform, post_id]):
+            return jsonify({"error": "Missing required parameters: platform, post_id"}), 400
+        
+        # Check for comments
+        if monitor:
+            result = monitor.check_for_comments(platform, post_id)
+            return jsonify({"success": True, "result": result})
+        else:
+            return jsonify({"error": "Monitor not initialized"}), 500
+    except Exception as e:
+        logger.error(f"API error in check_post_comments: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 @bp.route('/publish-now', methods=['POST'])
@@ -477,6 +505,7 @@ def post_content_route():
 def check_engagement_route():
     """Render the engagement checking page and handle form submission."""
     result = None
+    comments = []
     
     if request.method == 'POST':
         try:
@@ -486,21 +515,30 @@ def check_engagement_route():
             if not all([platform, post_id]):
                 flash('Please fill out all required fields', 'danger')
             else:
+                # Check for engagement metrics
                 result = agent.check_engagement(
                     platform=platform,
                     post_id=post_id
                 )
+                
+                # Check for comments
+                if monitor:
+                    comments_result = monitor.check_for_comments(platform, post_id)
+                    if comments_result.get('success', True) and comments_result.get('comments'):
+                        comments = comments_result.get('comments', [])
+                
                 flash('Engagement data retrieved successfully!', 'success')
         except Exception as e:
             logger.error(f"Error in check engagement route: {str(e)}")
             flash(f'Error checking engagement: {str(e)}', 'danger')
     
-    return render_template('check_engagement.html', result=result)
+    return render_template('check_engagement.html', result=result, comments=comments)
 
 @main.route('/respond-to-comments', methods=['GET', 'POST'])
 def respond_comments_route():
     """Render the comment response page and handle form submission."""
     result = None
+    comments = []
     
     if request.method == 'POST':
         try:
@@ -510,24 +548,41 @@ def respond_comments_route():
             if not all([platform, post_id]):
                 flash('Please fill out all required fields', 'danger')
             else:
-                # Here we would typically retrieve comments and then respond
-                # For now, let's use a simplified approach with sample comments
-                sample_comments = [
-                    {"id": "comment1", "text": "Great post!"},
-                    {"id": "comment2", "text": "I have a question about this."}
-                ]
-                
-                result = agent.respond_to_comments(
-                    platform=platform,
-                    post_id=post_id,
-                    comments=sample_comments
-                )
-                flash('Responses generated successfully!', 'success')
+                # Check for comments first
+                if monitor:
+                    comments_result = monitor.check_for_comments(platform, post_id)
+                    if comments_result.get('success', True):
+                        comments = comments_result.get('comments', [])
+                        
+                        if comments:
+                            # Generate responses to the comments
+                            result = agent.respond_to_comments(
+                                platform=platform,
+                                post_id=post_id,
+                                comments=comments
+                            )
+                            flash('Responses generated successfully!', 'success')
+                        else:
+                            flash('No comments found to respond to.', 'info')
+                else:
+                    # Fallback to sample comments if monitor is not available
+                    sample_comments = [
+                        {"id": "comment1", "text": "Great post!"},
+                        {"id": "comment2", "text": "I have a question about this."}
+                    ]
+                    
+                    comments = sample_comments
+                    result = agent.respond_to_comments(
+                        platform=platform,
+                        post_id=post_id,
+                        comments=sample_comments
+                    )
+                    flash('Responses generated successfully (using sample comments)!', 'success')
         except Exception as e:
             logger.error(f"Error in respond to comments route: {str(e)}")
             flash(f'Error responding to comments: {str(e)}', 'danger')
     
-    return render_template('respond_comments.html', result=result)
+    return render_template('respond_comments.html', result=result, comments=comments)
 
 # Scheduler process
 scheduler_process = None
@@ -574,6 +629,52 @@ def stop_scheduler():
         flash(f'Error stopping scheduler: {str(e)}', 'danger')
     
     return redirect(url_for('main.schedule_content_route'))
+
+# Monitor process
+monitor_process = None
+
+@main.route('/run-monitor')
+def run_monitor():
+    """Endpoint to manually trigger the monitor."""
+    global monitor_process
+    
+    try:
+        if monitor_process is None or monitor_process.poll() is not None:
+            # Start the monitor process
+            monitor_process = subprocess.Popen(
+                ["python", "-m", "src.monitor"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            flash('Monitor started successfully!', 'success')
+        else:
+            flash('Monitor is already running', 'info')
+    except Exception as e:
+        logger.error(f"Error starting monitor: {str(e)}")
+        flash(f'Error starting monitor: {str(e)}', 'danger')
+    
+    return redirect(url_for('main.respond_comments_route'))
+
+@main.route('/stop-monitor')
+def stop_monitor():
+    """Endpoint to stop the monitor."""
+    global monitor_process
+    
+    try:
+        if monitor_process is not None and monitor_process.poll() is None:
+            # Terminate the monitor process
+            monitor_process.terminate()
+            monitor_process.wait(timeout=5)
+            monitor_process = None
+            flash('Monitor stopped successfully!', 'success')
+        else:
+            flash('Monitor is not running', 'info')
+    except Exception as e:
+        logger.error(f"Error stopping monitor: {str(e)}")
+        flash(f'Error stopping monitor: {str(e)}', 'danger')
+    
+    return redirect(url_for('main.respond_comments_route'))
 
 @main.route('/publish-post/<post_id>')
 def publish_post(post_id):
@@ -637,16 +738,3 @@ def delete_post(post_id):
         flash(f'Error deleting post: {str(e)}', 'danger')
     
     return redirect(url_for('main.schedule_content_route'))
-
-@main.route('/run-monitor')
-def run_monitor():
-    """Endpoint to manually trigger the monitor."""
-    try:
-        # Here we would typically trigger the monitor to run
-        # For now, we'll just show a message
-        flash('Monitor triggered successfully!', 'success')
-    except Exception as e:
-        logger.error(f"Error triggering monitor: {str(e)}")
-        flash(f'Error triggering monitor: {str(e)}', 'danger')
-    
-    return redirect(url_for('main.index'))
