@@ -1,53 +1,46 @@
+from flask import Blueprint, request, jsonify, render_template, flash, redirect, url_for, session
+from src.agents.social_media_agent import SocialMediaAgent
+from src.tools.scheduler_tool import SchedulerTool
+from src.monitor import SocialMediaMonitor
+from langchain_openai import ChatOpenAI
+from src.web_ui.publish_helpers import publish_scheduled_post
+from src.config.api_helper import normalize_post_response
+import os
+import subprocess
+import signal
+import threading
+import time
+from datetime import datetime
+import logging
+import json
 
-@main.route('/publish-post/<post_id>')
-def publish_post(post_id):
-    """Endpoint to publish a scheduled post immediately."""
-    try:
-        # Get the scheduled post
-        if scheduler_tool:
-            # Get all scheduled posts
-            all_posts = scheduler_tool.get_scheduled_posts()
-            
-            if all_posts.get('success', False):
-                # Find the post with the given ID
-                post_to_publish = None
-                for post in all_posts.get('scheduled_posts', []):
-                    if post.get('id') == post_id:
-                        post_to_publish = post
-                        break
-                
-                if post_to_publish:
-                    # Log post details for debugging
-                    logger.info(f"Attempting to publish post: {post_id}, Platform: {post_to_publish.get('platform')}")
-                    
-                    # Publish the post immediately
-                    result = agent.post_content(
-                        content=post_to_publish.get('content'),
-                        platform=post_to_publish.get('platform'),
-                        image_path=post_to_publish.get('image_path')
-                    )
-                    
-                    # Log the result for debugging
-                    logger.info(f"Publish result: {result}")
-                    
-                    if result.get('success', False):
-                        # Remove the post from the schedule
-                        cancel_result = scheduler_tool.cancel_scheduled_post(post_id)
-                        
-                        if cancel_result.get('success', False):
-                            flash('Post published and removed from schedule successfully!', 'success')
-                        else:
-                            flash('Post published but could not be removed from schedule.', 'warning')
-                    else:
-                        flash(f'Error publishing post: {result.get("error", "Unknown error")}', 'danger')
-                else:
-                    flash(f'Post with ID {post_id} not found', 'danger')
-            else:
-                flash('Error getting scheduled posts', 'danger')
-        else:
-            flash('Scheduler tool not available', 'danger')
-    except Exception as e:
-        logger.error(f"Error publishing post immediately: {str(e)}")
-        flash(f'Error publishing post: {str(e)}', 'danger')
-    
-    return redirect(url_for('main.schedule_content_route'))
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger("web_ui_routes")
+
+bp = Blueprint('api', __name__, url_prefix='/api')
+main = Blueprint('main', __name__)
+
+# Initialize the language model and agent
+try:
+    llm = ChatOpenAI(
+        model_name="gpt-4o",
+        temperature=0.7,
+        api_key=os.getenv('OPENAI_API_KEY')
+    )
+    agent = SocialMediaAgent(llm=llm)
+    scheduler_tool = SchedulerTool()
+    monitor = SocialMediaMonitor()
+    logger.info("SocialMediaAgent initialized in routes.py")
+except Exception as e:
+    logger.error(f"Error initializing agent in routes.py: {str(e)}")
+    agent = None
+    scheduler_tool = None
+    monitor = None
+
+# Global variables for the monitor and scheduler threads
+monitor_thread = None
+scheduler_process = None
