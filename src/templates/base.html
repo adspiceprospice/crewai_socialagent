@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}CrewAI Social Media Agent{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    {% block head %}{% endblock %}
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <nav class="bg-blue-600 text-white shadow-md">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <a href="{{ url_for('index') }}" class="text-xl font-bold">CrewAI Social Media Agent</a>
+                <div x-data="{ open: false }" class="md:hidden">
+                    <button @click="open = !open" class="text-white focus:outline-none">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                    </button>
+                    <div x-show="open" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
+                        <a href="{{ url_for('content_strategy') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Content Strategy</a>
+                        <a href="{{ url_for('content_generation') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Generate Content</a>
+                        <a href="{{ url_for('image_generation') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Generate Image</a>
+                        <a href="{{ url_for('schedule_content_route') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Schedule Content</a>
+                        <a href="{{ url_for('post_content_route') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Post Content</a>
+                        <a href="{{ url_for('check_engagement_route') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Check Engagement</a>
+                        <a href="{{ url_for('respond_comments_route') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Respond to Comments</a>
+                    </div>
+                </div>
+                <div class="hidden md:flex space-x-4">
+                    <a href="{{ url_for('content_strategy') }}" class="px-3 py-2 rounded hover:bg-blue-700">Content Strategy</a>
+                    <a href="{{ url_for('content_generation') }}" class="px-3 py-2 rounded hover:bg-blue-700">Generate Content</a>
+                    <a href="{{ url_for('image_generation') }}" class="px-3 py-2 rounded hover:bg-blue-700">Generate Image</a>
+                    <a href="{{ url_for('schedule_content_route') }}" class="px-3 py-2 rounded hover:bg-blue-700">Schedule Content</a>
+                    <a href="{{ url_for('post_content_route') }}" class="px-3 py-2 rounded hover:bg-blue-700">Post Content</a>
+                    <a href="{{ url_for('check_engagement_route') }}" class="px-3 py-2 rounded hover:bg-blue-700">Check Engagement</a>
+                    <a href="{{ url_for('respond_comments_route') }}" class="px-3 py-2 rounded hover:bg-blue-700">Respond to Comments</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-4 py-8">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="mb-4 p-4 rounded {% if category == 'success' %}bg-green-100 text-green-700{% elif category == 'danger' %}bg-red-100 text-red-700{% else %}bg-blue-100 text-blue-700{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer class="bg-gray-800 text-white py-6 mt-12">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0">
+                    <p>&copy; 2023 CrewAI Social Media Agent</p>
+                </div>
+                <div class="flex space-x-4">
+                    <a href="{{ url_for('run_scheduler') }}" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">Run Scheduler</a>
+                    <a href="{{ url_for('run_monitor') }}" class="px-4 py-2 bg-blue-600 rounded hover:bg-blue-700">Run Monitor</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html> 
