@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}Debug LinkedIn Post{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-6">Debug LinkedIn Post</h1>
+    
+    <div class="bg-white shadow-md rounded-lg p-6 mb-8">
+        <h2 class="text-xl font-semibold mb-4">Test LinkedIn Posting</h2>
+        <p class="mb-4">This tool will try different methods of posting to LinkedIn to help diagnose issues.</p>
+        
+        <form method="POST" class="space-y-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div>
+                <label for="text" class="block text-sm font-medium text-gray-700 mb-1">Post Text</label>
+                <textarea id="text" name="text" rows="4" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">Test post from CrewAI Social Media Agent</textarea>
+            </div>
+            
+            <div>
+                <label for="org_id" class="block text-sm font-medium text-gray-700 mb-1">Organization ID (optional)</label>
+                <input type="text" id="org_id" name="org_id" value="{{ org_id }}" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" placeholder="Leave blank to post as yourself">
+                <p class="text-sm text-gray-500 mt-1">If you want to post as an organization, enter the organization ID here.</p>
+            </div>
+            
+            <div>
+                <button type="submit" class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Test LinkedIn Posting
+                </button>
+                <a href="{{ url_for('main.check_linkedin_permissions') }}" class="ml-4 inline-flex justify-center py-2 px-4 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    Check LinkedIn Permissions
+                </a>
+            </div>
+        </form>
+    </div>
+    
+    {% if results %}
+    <div class="bg-white shadow-md rounded-lg p-6">
+        <h2 class="text-xl font-semibold mb-4">Debug Results</h2>
+        
+        <!-- Overall Status -->
+        <div class="mb-6">
+            <h3 class="text-lg font-medium mb-2">Overall Status</h3>
+            {% if results.success %}
+            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4">
+                <strong class="font-bold">Success!</strong>
+                <span class="block sm:inline"> At least one method of posting to LinkedIn succeeded.</span>
+            </div>
+            {% else %}
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4">
+                <strong class="font-bold">Failed!</strong>
+                <span class="block sm:inline"> All methods of posting to LinkedIn failed.</span>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Recommendations -->
+        {% if results.recommendations %}
+        <div class="mb-6">
+            <h3 class="text-lg font-medium mb-2">Recommendations</h3>
+            <ul class="list-disc pl-5 space-y-1">
+                {% for recommendation in results.recommendations %}
+                <li class="text-gray-700">{{ recommendation }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        
+        <!-- User Info -->
+        {% if results.user_info %}
+        <div class="mb-6">
+            <h3 class="text-lg font-medium mb-2">User Information</h3>
+            <div class="bg-gray-50 p-4 rounded-md">
+                <p><strong>Success:</strong> {{ results.user_info.success }}</p>
+                <p><strong>User URN:</strong> {{ results.user_info.user_urn }}</p>
+                {% if results.user_info.error %}
+                <p><strong>Error:</strong> {{ results.user_info.error }}</p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Detailed Results -->
+        <div>
+            <h3 class="text-lg font-medium mb-2">Detailed Results</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for attempt in results.attempts %}
+                        <tr>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ attempt.method }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {% if attempt.success %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Success</span>
+                                {% else %}
+                                <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Failed</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-500">
+                                {% if attempt.status_code %}
+                                <p><strong>Status Code:</strong> {{ attempt.status_code }}</p>
+                                {% endif %}
+                                
+                                {% if attempt.error %}
+                                <p><strong>Error:</strong> {{ attempt.error }}</p>
+                                {% endif %}
+                                
+                                {% if attempt.response %}
+                                <details>
+                                    <summary class="cursor-pointer text-indigo-600 hover:text-indigo-900">View Response</summary>
+                                    <pre class="mt-2 p-2 bg-gray-100 rounded text-xs overflow-x-auto">{{ attempt.response }}</pre>
+                                </details>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <div class="mt-6">
+        <a href="{{ url_for('main.index') }}" class="text-indigo-600 hover:text-indigo-900">← Back to Home</a>
+    </div>
+</div>
+{% endblock %} 

@@ -727,19 +727,34 @@ def publish_post(post_id):
                         break
                 
                 if post_to_publish:
+                    platform = post_to_publish.get('platform')
+                    content = post_to_publish.get('content')
+                    image_path = post_to_publish.get('image_path')
+                    
+                    # Log the post details
+                    logger.info(f"Publishing post {post_id} to {platform}: {content[:50]}...")
+                    
                     # Publish the post immediately
                     result = agent.post_content(
-                        content=post_to_publish.get('content'),
-                        platform=post_to_publish.get('platform'),
-                        image_path=post_to_publish.get('image_path')
+                        content=content,
+                        platform=platform,
+                        image_path=image_path
                     )
                     
                     if result.get('success', False):
                         # Remove the post from the schedule
                         scheduler_tool.cancel_scheduled_post(post_id)
-                        flash('Post published successfully!', 'success')
+                        flash(f'Post published successfully to {platform}!', 'success')
                     else:
-                        flash(f'Error publishing post: {result.get("error", "Unknown error")}', 'danger')
+                        error_msg = result.get('error', 'Unknown error')
+                        logger.error(f"Error publishing post to {platform}: {error_msg}")
+                        
+                        # Special handling for LinkedIn errors
+                        if platform.lower() == 'linkedin' and 'access_denied' in error_msg.lower():
+                            flash(f'Error publishing to LinkedIn: Permission issue. Please check LinkedIn permissions and try the debug tool.', 'danger')
+                            return redirect(url_for('main.debug_linkedin_post'))
+                        else:
+                            flash(f'Error publishing post: {error_msg}', 'danger')
                 else:
                     flash(f'Post with ID {post_id} not found', 'danger')
             else:
@@ -831,3 +846,81 @@ def manual_check_comments():
             flash(f'Error checking comments: {str(e)}', 'danger')
     
     return render_template('manual_check_comments.html', comments=comments)
+
+@main.route('/check-linkedin-permissions')
+def check_linkedin_permissions():
+    """Endpoint to check LinkedIn API permissions."""
+    try:
+        # Find the LinkedIn tool
+        linkedin_tool = None
+        if agent:
+            for tool in agent.tools:
+                if tool.name == "LinkedIn Poster":
+                    linkedin_tool = tool
+                    break
+        
+        if not linkedin_tool:
+            flash('LinkedIn tool not available', 'danger')
+            return redirect(url_for('main.index'))
+        
+        # Check permissions
+        result = linkedin_tool.check_permissions()
+        
+        if result.get('success', False):
+            return render_template(
+                'linkedin_permissions.html', 
+                permissions=result.get('permissions', {}),
+                recommendations=result.get('recommendations', []),
+                message=result.get('message', '')
+            )
+        else:
+            flash(f'Error checking LinkedIn permissions: {result.get("error", "Unknown error")}', 'danger')
+            return redirect(url_for('main.index'))
+    except Exception as e:
+        logger.error(f"Error checking LinkedIn permissions: {str(e)}")
+        flash(f'Error checking LinkedIn permissions: {str(e)}', 'danger')
+        return redirect(url_for('main.index'))
+
+@main.route('/debug-linkedin-post', methods=['GET', 'POST'])
+def debug_linkedin_post():
+    """Endpoint to debug LinkedIn posting."""
+    results = None
+    
+    try:
+        # Find the LinkedIn tool
+        linkedin_tool = None
+        if agent:
+            for tool in agent.tools:
+                if tool.name == "LinkedIn Poster":
+                    linkedin_tool = tool
+                    break
+        
+        if not linkedin_tool:
+            flash('LinkedIn tool not available', 'danger')
+            return redirect(url_for('main.index'))
+        
+        if request.method == 'POST':
+            # Get form data
+            text = request.form.get('text', 'Test post from CrewAI Social Media Agent')
+            org_id = request.form.get('org_id')
+            
+            if not text:
+                flash('Please provide text for the test post', 'danger')
+            else:
+                # Run debug post
+                results = linkedin_tool.debug_post(text, org_id)
+                
+                if results.get('success', False):
+                    flash('At least one LinkedIn posting method succeeded!', 'success')
+                else:
+                    flash('All LinkedIn posting methods failed. See details below.', 'danger')
+        
+        return render_template(
+            'debug_linkedin_post.html',
+            results=results,
+            org_id=os.getenv('LINKEDIN_ORGANIZATION_ID', '')
+        )
+    except Exception as e:
+        logger.error(f"Error debugging LinkedIn post: {str(e)}")
+        flash(f'Error debugging LinkedIn post: {str(e)}', 'danger')
+        return redirect(url_for('main.index'))

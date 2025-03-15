@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}LinkedIn API Permissions{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold mb-6">LinkedIn API Permissions Check</h1>
+    
+    <div class="bg-white shadow-md rounded-lg p-6 mb-6">
+        <h2 class="text-xl font-semibold mb-4">Status: 
+            {% if recommendations|length == 0 %}
+                <span class="text-green-600">All Permissions OK</span>
+            {% else %}
+                <span class="text-red-600">Permission Issues Detected</span>
+            {% endif %}
+        </h2>
+        
+        <p class="mb-4">{{ message }}</p>
+        
+        <h3 class="text-lg font-semibold mb-2">Permission Details</h3>
+        <div class="overflow-x-auto">
+            <table class="min-w-full bg-white border border-gray-300">
+                <thead>
+                    <tr>
+                        <th class="py-2 px-4 border-b text-left">Permission</th>
+                        <th class="py-2 px-4 border-b text-left">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for permission, status in permissions.items() %}
+                    <tr>
+                        <td class="py-2 px-4 border-b">{{ permission }}</td>
+                        <td class="py-2 px-4 border-b">
+                            {% if status %}
+                                <span class="text-green-600">✓ Granted</span>
+                            {% else %}
+                                <span class="text-red-600">✗ Missing</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if recommendations|length > 0 %}
+        <h3 class="text-lg font-semibold mt-6 mb-2">Recommendations</h3>
+        <ul class="list-disc pl-6 space-y-2">
+            {% for recommendation in recommendations %}
+            <li class="text-red-600">{{ recommendation }}</li>
+            {% endfor %}
+        </ul>
+        
+        <div class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+            <h4 class="font-semibold text-yellow-800 mb-2">How to Fix LinkedIn API Permissions</h4>
+            <ol class="list-decimal pl-6 space-y-2 text-yellow-800">
+                <li>Go to the <a href="https://www.linkedin.com/developers/apps" target="_blank" class="text-blue-600 underline">LinkedIn Developer Portal</a></li>
+                <li>Select your application</li>
+                <li>Go to the "Auth" tab</li>
+                <li>Under "OAuth 2.0 scopes", add the missing permissions:
+                    <ul class="list-disc pl-6 mt-2">
+                        <li>r_liteprofile - To access your profile information</li>
+                        <li>w_member_social - To post content as yourself</li>
+                        <li>w_organization_social - To post content as your organization</li>
+                        <li>r_organization_social - To read organization content</li>
+                        <li>rw_organization_admin - For organization administration</li>
+                    </ul>
+                </li>
+                <li>Generate a new access token with these permissions</li>
+                <li>Update your .env file with the new token</li>
+                <li>If posting as an organization, make sure LINKEDIN_ORGANIZATION_ID is set in your .env file</li>
+            </ol>
+        </div>
+        {% endif %}
+    </div>
+    
+    <div class="flex justify-between mt-6">
+        <a href="{{ url_for('main.index') }}" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">
+            Back to Home
+        </a>
+        <div class="space-x-2">
+            <a href="{{ url_for('main.debug_linkedin_post') }}" class="bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded">
+                Debug LinkedIn Post
+            </a>
+            <a href="{{ url_for('main.check_linkedin_permissions') }}" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded">
+                Refresh Permissions
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %} 

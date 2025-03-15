@@ -469,32 +469,25 @@ class SocialMediaAgent:
                 logger.error("Scheduler tool not found")
                 return {"error": "Scheduler tool not found"}
             
-            # Schedule each content item
-            for item in content_items:
-                try:
-                    # Parse the scheduled time
-                    scheduled_time = datetime.fromisoformat(item.get("scheduled_time").replace(' ', 'T'))
-                    
-                    # Schedule the content
-                    result = scheduler_tool._run(
-                        content=item.get("content"),
-                        platform=item.get("platform"),
-                        schedule_time=scheduled_time.isoformat(),
-                        image_path=item.get("image_path")
-                    )
-                    
-                    # Add to results
-                    results["success"].append({
-                        "id": item.get("id"),
-                        "message": result
-                    })
-                    
-                except Exception as item_error:
-                    logger.error(f"Error scheduling content item {item.get('id')}: {str(item_error)}")
-                    results["failed"].append({
-                        "id": item.get("id"),
-                        "error": str(item_error)
-                    })
+            # Use the scheduler tool to schedule all content items at once
+            result = scheduler_tool._run(content_items)
+            
+            # Process the results
+            if result.get("success", False):
+                for item_result in result.get("results", []):
+                    if "error" in item_result:
+                        results["failed"].append({
+                            "id": item_result.get("item", {}).get("id"),
+                            "error": item_result.get("error")
+                        })
+                    else:
+                        results["success"].append({
+                            "id": item_result.get("item", {}).get("id"),
+                            "message": item_result.get("result")
+                        })
+            else:
+                logger.error(f"Error from scheduler tool: {result.get('error')}")
+                return {"error": result.get("error")}
             
             return results
         except Exception as e:

@@ -21,6 +21,65 @@ class SchedulerTool:
                 "last_updated": datetime.datetime.now().isoformat()
             })
     
+    def _run(self, content_items: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """
+        Schedule multiple content items at once.
+        
+        Args:
+            content_items: List of content items to schedule
+            
+        Returns:
+            Dictionary containing the result of the scheduling operation
+        """
+        try:
+            results = []
+            success_count = 0
+            error_count = 0
+            
+            for item in content_items:
+                try:
+                    content = item.get("content")
+                    platform = item.get("platform")
+                    schedule_time = datetime.datetime.fromisoformat(item.get("scheduled_time").replace("Z", "+00:00").replace(" ", "T"))
+                    image_path = item.get("image_path")
+                    
+                    # Schedule the post
+                    result = self.schedule_post(
+                        content=content,
+                        platform=platform,
+                        schedule_time=schedule_time,
+                        image_path=image_path
+                    )
+                    
+                    if result.get("success", False):
+                        success_count += 1
+                    else:
+                        error_count += 1
+                        
+                    results.append({
+                        "item": item,
+                        "result": result
+                    })
+                except Exception as e:
+                    error_count += 1
+                    results.append({
+                        "item": item,
+                        "error": str(e)
+                    })
+            
+            return {
+                "success": True,
+                "message": f"Scheduled {success_count} posts, {error_count} errors",
+                "results": results,
+                "success_count": success_count,
+                "error_count": error_count
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Error scheduling posts: {str(e)}"
+            }
+    
     def update_post_status(self, post_id: str, new_status: str, platform_post_id: Optional[str] = None) -> Dict[str, Any]:
         """
         Update the status of a scheduled post.
