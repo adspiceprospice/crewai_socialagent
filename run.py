@@ -85,7 +85,7 @@ def main():
     
     # Start the web UI
     web_ui_process = start_process("web_ui.py", "Web UI")
-    print("✅ Web UI started at http://localhost:5000")
+    print("✅ Web UI started at http://localhost:5001")
     
     # Start the scheduler
     scheduler_process = start_process("src/scheduler.py", "Scheduler")
@@ -96,7 +96,7 @@ def main():
     print("✅ Monitor started")
     
     print("\n🎉 All systems are running!")
-    print("Access the web interface at: http://localhost:5000")
+    print("Access the web interface at: http://localhost:5001")
     print("Press Ctrl+C to stop all processes.")
     
     # Keep the main process running and monitor child processes

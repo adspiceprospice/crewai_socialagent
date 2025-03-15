@@ -2,6 +2,7 @@ import requests
 import json
 from typing import Dict, Any, Optional
 from crewai.tools import BaseTool
+from pydantic import PrivateAttr
 from src.config.config import (
     LINKEDIN_ACCESS_TOKEN,
     LINKEDIN_CLIENT_ID,
@@ -14,10 +15,14 @@ class LinkedInTool(BaseTool):
     name: str = "LinkedIn Poster"
     description: str = "Post content to LinkedIn, including text and images."
     
+    # Use PrivateAttr for instance attributes that shouldn't be part of the model
+    _access_token: str = PrivateAttr()
+    _api_url: str = PrivateAttr()
+    
     def __init__(self):
         super().__init__()
-        self.access_token = LINKEDIN_ACCESS_TOKEN
-        self.api_url = "https://api.linkedin.com/v2"
+        self._access_token = LINKEDIN_ACCESS_TOKEN
+        self._api_url = "https://api.linkedin.com/v2"
         
     def _execute(
         self, 
@@ -96,13 +101,13 @@ class LinkedInTool(BaseTool):
             
             # Make the API request to create the post
             headers = {
-                "Authorization": f"Bearer {self.access_token}",
+                "Authorization": f"Bearer {self._access_token}",
                 "Content-Type": "application/json",
                 "X-Restli-Protocol-Version": "2.0.0"
             }
             
             response = requests.post(
-                f"{self.api_url}/ugcPosts",
+                f"{self._api_url}/ugcPosts",
                 headers=headers,
                 data=json.dumps(post_data)
             )
@@ -129,12 +134,12 @@ class LinkedInTool(BaseTool):
         """Get the user's LinkedIn information."""
         try:
             headers = {
-                "Authorization": f"Bearer {self.access_token}",
+                "Authorization": f"Bearer {self._access_token}",
                 "X-Restli-Protocol-Version": "2.0.0"
             }
             
             response = requests.get(
-                f"{self.api_url}/me",
+                f"{self._api_url}/me",
                 headers=headers
             )
             
@@ -168,7 +173,7 @@ class LinkedInTool(BaseTool):
             
             # Step 1: Register the image upload
             headers = {
-                "Authorization": f"Bearer {self.access_token}",
+                "Authorization": f"Bearer {self._access_token}",
                 "Content-Type": "application/json",
                 "X-Restli-Protocol-Version": "2.0.0"
             }
@@ -187,7 +192,7 @@ class LinkedInTool(BaseTool):
             }
             
             register_response = requests.post(
-                f"{self.api_url}/assets?action=registerUpload",
+                f"{self._api_url}/assets?action=registerUpload",
                 headers=headers,
                 data=json.dumps(register_data)
             )
@@ -213,7 +218,7 @@ class LinkedInTool(BaseTool):
                 image_data = image_file.read()
                 
             upload_headers = {
-                "Authorization": f"Bearer {self.access_token}"
+                "Authorization": f"Bearer {self._access_token}"
             }
             
             upload_response = requests.put(
@@ -244,12 +249,12 @@ class LinkedInTool(BaseTool):
         """Get comments on a LinkedIn post."""
         try:
             headers = {
-                "Authorization": f"Bearer {self.access_token}",
+                "Authorization": f"Bearer {self._access_token}",
                 "X-Restli-Protocol-Version": "2.0.0"
             }
             
             response = requests.get(
-                f"{self.api_url}/socialActions/urn:li:share:{post_id}/comments",
+                f"{self._api_url}/socialActions/urn:li:share:{post_id}/comments",
                 headers=headers
             )
             
@@ -269,4 +274,18 @@ class LinkedInTool(BaseTool):
             return {
                 "success": False,
                 "error": f"Error getting post comments: {str(e)}"
-            } 
+            }
+
+    def _run(self, text: str, image_path: Optional[str] = None, schedule_time: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Required method from BaseTool. Executes the LinkedIn posting operation.
+        
+        Args:
+            text: The text content to post
+            image_path: Optional path to an image to include in the post
+            schedule_time: Optional ISO-8601 timestamp for scheduling the post
+            
+        Returns:
+            Dictionary containing the result of the posting operation
+        """
+        return self._execute(text, image_path, schedule_time) 

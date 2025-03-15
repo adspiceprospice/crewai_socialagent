@@ -7,6 +7,7 @@ import time
 import os
 from typing import Dict, Any, Optional
 from crewai.tools import BaseTool
+from pydantic import PrivateAttr
 from src.config.config import (
     TWITTER_API_KEY,
     TWITTER_API_SECRET,
@@ -20,14 +21,40 @@ class TwitterTool(BaseTool):
     name: str = "Twitter Poster"
     description: str = "Post content to X.com (Twitter), including text and images."
     
+    # Use PrivateAttr for instance attributes that shouldn't be part of the model
+    _api_key: str = PrivateAttr()
+    _api_secret: str = PrivateAttr()
+    _access_token: str = PrivateAttr()
+    _access_token_secret: str = PrivateAttr()
+    _api_url: str = PrivateAttr()
+    
     def __init__(self):
         super().__init__()
-        self.api_key = TWITTER_API_KEY
-        self.api_secret = TWITTER_API_SECRET
-        self.access_token = TWITTER_ACCESS_TOKEN
-        self.access_token_secret = TWITTER_ACCESS_TOKEN_SECRET
-        self.api_url = "https://api.twitter.com/2"
+        self._api_key = TWITTER_API_KEY
+        self._api_secret = TWITTER_API_SECRET
+        self._access_token = TWITTER_ACCESS_TOKEN
+        self._access_token_secret = TWITTER_ACCESS_TOKEN_SECRET
+        self._api_url = "https://api.twitter.com/2"
         
+    def _run(
+        self, 
+        text: str, 
+        image_path: Optional[str] = None,
+        schedule_time: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Required method from BaseTool. Executes the Twitter posting operation.
+        
+        Args:
+            text: The text content to post (max 280 characters)
+            image_path: Optional path to an image to include in the post
+            schedule_time: Optional ISO-8601 timestamp for scheduling the post
+            
+        Returns:
+            Dictionary containing the result of the posting operation
+        """
+        return self._execute(text, image_path, schedule_time)
+    
     def _execute(
         self, 
         text: str, 
@@ -81,10 +108,10 @@ class TwitterTool(BaseTool):
                 post_data["scheduled_at"] = unix_timestamp
                 
                 # Use the scheduled tweets endpoint
-                endpoint = f"{self.api_url}/tweets/scheduled"
+                endpoint = f"{self._api_url}/tweets/scheduled"
             else:
                 # Use the regular tweets endpoint
-                endpoint = f"{self.api_url}/tweets"
+                endpoint = f"{self._api_url}/tweets"
             
             # Make the API request to create the post
             headers = self._get_auth_headers("POST", endpoint)
@@ -217,11 +244,11 @@ class TwitterTool(BaseTool):
         oauth_nonce = hashlib.md5(str(time.time()).encode()).hexdigest()
         
         oauth_params = {
-            "oauth_consumer_key": self.api_key,
+            "oauth_consumer_key": self._api_key,
             "oauth_nonce": oauth_nonce,
             "oauth_signature_method": "HMAC-SHA1",
             "oauth_timestamp": oauth_timestamp,
-            "oauth_token": self.access_token,
+            "oauth_token": self._access_token,
             "oauth_version": "1.0"
         }
         
@@ -238,7 +265,7 @@ class TwitterTool(BaseTool):
         signature_base = f"{method}&{requests.utils.quote(url, safe='')}&{requests.utils.quote(param_string, safe='')}"
         
         # Create the signing key
-        signing_key = f"{requests.utils.quote(self.api_secret, safe='')}&{requests.utils.quote(self.access_token_secret, safe='')}"
+        signing_key = f"{requests.utils.quote(self._api_secret, safe='')}&{requests.utils.quote(self._access_token_secret, safe='')}"
         
         # Generate the signature
         signature = base64.b64encode(
@@ -262,7 +289,7 @@ class TwitterTool(BaseTool):
     def get_tweet_replies(self, tweet_id: str) -> Dict[str, Any]:
         """Get replies to a tweet."""
         try:
-            endpoint = f"{self.api_url}/tweets/search/recent"
+            endpoint = f"{self._api_url}/tweets/search/recent"
             params = {
                 "query": f"conversation_id:{tweet_id}",
                 "tweet.fields": "in_reply_to_user_id,author_id,created_at,conversation_id"
