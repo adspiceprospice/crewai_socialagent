@@ -13,7 +13,8 @@ import datetime
 from typing import Dict, Any, List
 from src.tools.linkedin_tool import LinkedInTool
 from src.tools.twitter_tool import TwitterTool
-from src.main import respond_to_comments
+from src.agents.social_media_agent import SocialMediaAgent
+from langchain_openai import ChatOpenAI
 
 # Configure logging
 logging.basicConfig(
@@ -43,14 +44,25 @@ class SocialMediaMonitor:
         self.check_interval = check_interval
         
         try:
+            # Initialize the social media tools
             self.linkedin_tool = LinkedInTool()
             self.twitter_tool = TwitterTool()
             logger.info("Successfully initialized social media tools")
+            
+            # Initialize the social media agent for response generation
+            self.llm = ChatOpenAI(
+                model_name="gpt-4-turbo-preview",
+                temperature=0.7,
+                api_key=os.getenv('OPENAI_API_KEY')
+            )
+            self.agent = SocialMediaAgent(llm=self.llm)
+            logger.info("Successfully initialized SocialMediaAgent")
         except Exception as e:
-            logger.error(f"Error initializing social media tools: {str(e)}")
+            logger.error(f"Error initializing social media tools or agent: {str(e)}")
             # Still create the monitor but disable engagement checking
             self.linkedin_tool = None
             self.twitter_tool = None
+            self.agent = None
             
         self.comments_dir = "comments"
         self.responses_dir = "responses"
@@ -147,7 +159,7 @@ class SocialMediaMonitor:
             logger.error(f"Error loading comments: {str(e)}")
             return []
             
-    def _save_responses(self, post_id: str, responses: str):
+    def _save_responses(self, post_id: str, responses: List[Dict[str, Any]]):
         """
         Save responses to a file.
         
@@ -156,9 +168,9 @@ class SocialMediaMonitor:
             responses: The responses to save
         """
         try:
-            responses_file = os.path.join(self.responses_dir, f"{post_id}_responses.txt")
+            responses_file = os.path.join(self.responses_dir, f"{post_id}_responses.json")
             with open(responses_file, "w") as f:
-                f.write(responses)
+                json.dump(responses, f, indent=2)
                 
             return responses_file
         except Exception as e:
@@ -182,6 +194,84 @@ class SocialMediaMonitor:
         # Check if there are more comments now
         return len(current_comments) > len(previous_comments)
             
+    def check_for_comments(self, platform: str, post_id: str) -> Dict[str, Any]:
+        """
+        Check for new comments on a post and generate responses.
+        
+        Args:
+            platform: The platform to check
+            post_id: The ID of the post to check
+            
+        Returns:
+            A dictionary with the results of the check
+        """
+        try:
+            logger.info(f"Checking for comments on {platform} post: {post_id}")
+            
+            # Get the comments
+            comments = self._get_comments(platform, post_id)
+            
+            if not comments:
+                return {
+                    "success": True,
+                    "new_comments": False,
+                    "message": "No comments found"
+                }
+            
+            # Check if there are new comments
+            if self._has_new_comments(post_id, comments):
+                logger.info(f"New comments found on {platform} post: {post_id}")
+                
+                # Save the comments
+                comments_file = self._save_comments(post_id, comments)
+                
+                if comments_file and self.agent:
+                    # Generate responses
+                    try:
+                        responses = self.agent.respond_to_comments(
+                            platform=platform,
+                            post_id=post_id,
+                            comments=comments
+                        )
+                        
+                        # Save the responses
+                        responses_file = self._save_responses(post_id, responses)
+                        
+                        if responses_file:
+                            logger.info(f"Generated responses for {platform} post: {post_id}")
+                            return {
+                                "success": True,
+                                "new_comments": True,
+                                "comments": comments,
+                                "responses": responses,
+                                "message": f"Generated responses for {len(comments)} comments"
+                            }
+                    except Exception as e:
+                        logger.error(f"Error generating responses: {str(e)}")
+                        return {
+                            "success": False,
+                            "error": f"Error generating responses: {str(e)}"
+                        }
+            else:
+                logger.info(f"No new comments on {platform} post: {post_id}")
+                return {
+                    "success": True,
+                    "new_comments": False,
+                    "message": "No new comments found"
+                }
+                
+            return {
+                "success": True,
+                "new_comments": False,
+                "message": "No new comments to respond to"
+            }
+        except Exception as e:
+            logger.error(f"Error checking for comments: {str(e)}")
+            return {
+                "success": False,
+                "error": f"Error checking for comments: {str(e)}"
+            }
+            
     def run(self):
         """Run the monitor."""
         logger.info("Starting social media monitor")
@@ -199,33 +289,11 @@ class SocialMediaMonitor:
                                 platform = post.get("platform", "").lower()
                                 post_id = post.get("platform_post_id")
                                 
-                                logger.info(f"Checking for comments on {platform} post: {post_id}")
+                                # Check for comments and generate responses
+                                result = self.check_for_comments(platform, post_id)
                                 
-                                # Get the comments
-                                comments = self._get_comments(platform, post_id)
-                                
-                                # Check if there are new comments
-                                if self._has_new_comments(post_id, comments):
-                                    logger.info(f"New comments found on {platform} post: {post_id}")
-                                    
-                                    # Save the comments
-                                    comments_file = self._save_comments(post_id, comments)
-                                    
-                                    if comments_file:
-                                        # Generate responses
-                                        try:
-                                            responses = respond_to_comments(platform, post_id, comments)
-                                            
-                                            # Save the responses
-                                            responses_file = self._save_responses(post_id, responses)
-                                            
-                                            if responses_file:
-                                                logger.info(f"Generated responses for {platform} post: {post_id}")
-                                                logger.info(f"Responses saved to: {responses_file}")
-                                        except Exception as e:
-                                            logger.error(f"Error generating responses: {str(e)}")
-                                else:
-                                    logger.info(f"No new comments on {platform} post: {post_id}")
+                                if not result.get("success", False):
+                                    logger.error(f"Error checking comments for {platform} post {post_id}: {result.get('error')}")
                         except Exception as e:
                             logger.error(f"Error processing post: {str(e)}")
                             continue
@@ -260,4 +328,4 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error(f"Unhandled exception in monitor: {str(e)}")
         # Sleep before exiting to prevent rapid restarts
-        time.sleep(60) 
+        time.sleep(60)
