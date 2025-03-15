@@ -11,6 +11,7 @@ A powerful, AI-driven social media management solution built with CrewAI that au
 ## 🚀 Features
 
 - **🧠 Content Strategy Generation**: Create comprehensive, data-driven social media strategies tailored to your industry, audience, and business goals.
+- **📝 Content Plan Creation**: Generate multi-platform content plans with multiple posts scheduled over days, weeks, or months based on your strategy.
 - **✍️ Content Creation**: Generate engaging posts, articles, and threads optimized for LinkedIn and X.com with AI-powered content creation.
 - **🖼️ Image Generation**: Create compelling visual content using Google's Gemini 2.0 Flash model to accompany your posts.
 - **📅 Intelligent Scheduling**: Schedule posts for optimal engagement times with automated publishing.
@@ -139,13 +140,36 @@ Then open your browser and navigate to `http://localhost:5001` to access the int
 
 The web UI provides the following features:
 - Content strategy generation
-- Content creation
+- Content plan creation and scheduling
+- Individual content creation
 - Image generation
 - Post scheduling
 - Immediate posting
 - Engagement monitoring
 - Comment response generation
 - Running the scheduler and monitor
+
+### Content Planning Workflow
+
+The system offers a streamlined workflow for content creation:
+
+1. **Generate a Content Strategy**:
+   - Enter your industry, target audience, and goals
+   - The system generates a comprehensive content strategy with themes, content types, posting schedules, and more
+
+2. **Create a Content Plan**:
+   - From the strategy page, click "Generate Content Plan"
+   - Select your desired time period (1 week, 2 weeks, 1 month, 3 months)
+   - Choose how many content pieces to generate
+   - Select which platforms to generate content for (LinkedIn, Twitter/X)
+   - The system creates a complete content calendar with multiple posts distributed over time
+
+3. **Review and Schedule**:
+   - Review all generated content pieces in a table
+   - Edit any individual content pieces as needed
+   - Schedule individual posts or all posts at once
+
+This approach enables you to quickly go from strategy to a complete content calendar with minimal effort.
 
 ### Command Line Interface
 
@@ -342,12 +366,17 @@ The CrewAI Social Media Agent is built on a modular architecture that separates 
    - OpenAI generates comprehensive content strategy
    - Strategy is rendered on web UI or returned via CLI
 
-2. **Content Generation**:
+2. **Content Plan Creation**:
+   - User selects time period, content count, and platforms
+   - System generates multiple content pieces distributed over time
+   - Content is displayed in a table for review and scheduling
+
+3. **Content Generation**:
    - User provides topic, platform, and content type
    - OpenAI creates optimized content for the specified platform
    - Content is stored and optionally scheduled or posted immediately
 
-3. **Engagement Monitoring**:
+4. **Engagement Monitoring**:
    - Monitor periodically checks posts for new engagements
    - When new comments are detected, they're processed for response
    - AI generates contextually appropriate responses
@@ -388,6 +417,7 @@ crewai_socialagent/
 │           ├── base.html
 │           ├── index.html
 │           ├── content_strategy.html
+│           ├── execute_content_plan.html
 │           └── ...
 └── memory_storage/         # CrewAI memory storage
 ```
