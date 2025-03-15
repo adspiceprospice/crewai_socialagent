@@ -42,6 +42,7 @@ class SocialMediaMonitor:
         """
         self.schedule_file = schedule_file
         self.check_interval = check_interval
+        self.is_running = False
         
         try:
             # Initialize the social media tools
@@ -226,8 +227,9 @@ class SocialMediaMonitor:
                 comments_file = self._save_comments(post_id, comments)
                 
                 if comments_file and self.agent:
-                    # Generate responses
+                    # Generate responses using the SocialMediaAgent's respond_to_comments method
                     try:
+                        # Using the agent's respond_to_comments method
                         responses = self.agent.respond_to_comments(
                             platform=platform,
                             post_id=post_id,
@@ -271,13 +273,27 @@ class SocialMediaMonitor:
                 "success": False,
                 "error": f"Error checking for comments: {str(e)}"
             }
+    
+    def start(self):
+        """Start the monitor."""
+        if self.is_running:
+            logger.info("Monitor is already running")
+            return
+        
+        self.is_running = True
+        self.run()
+        
+    def stop(self):
+        """Stop the monitor."""
+        logger.info("Stopping social media monitor")
+        self.is_running = False
             
     def run(self):
         """Run the monitor."""
         logger.info("Starting social media monitor")
         
         try:
-            while True:
+            while self.is_running:
                 try:
                     # Load the schedule
                     schedule = self._load_schedule()
@@ -303,6 +319,10 @@ class SocialMediaMonitor:
                 except Exception as e:
                     logger.error(f"Error in monitor loop: {str(e)}")
                     time.sleep(self.check_interval)  # Sleep and try again
+                    
+                # Check if we should stop
+                if not self.is_running:
+                    break
                 
         except KeyboardInterrupt:
             logger.info("Stopping social media monitor")
@@ -310,7 +330,8 @@ class SocialMediaMonitor:
             logger.error(f"Error in monitor: {str(e)}")
             # Keep the process running instead of crashing
             time.sleep(60)
-            self.run()  # Restart the monitor
+            if self.is_running:
+                self.run()  # Restart the monitor
 
 def main():
     """Main function to run the monitor."""
