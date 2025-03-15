@@ -21,6 +21,7 @@
                     </button>
                     <div x-show="open" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-10">
                         <a href="{{ url_for('main.content_strategy') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Content Strategy</a>
+                        <a href="{{ url_for('main.execute_content_plan') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Content Plan</a>
                         <a href="{{ url_for('main.content_generation') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Generate Content</a>
                         <a href="{{ url_for('main.image_generation') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Generate Image</a>
                         <a href="{{ url_for('main.schedule_content_route') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Schedule Content</a>
@@ -31,6 +32,7 @@
                 </div>
                 <div class="hidden md:flex space-x-4">
                     <a href="{{ url_for('main.content_strategy') }}" class="px-3 py-2 rounded hover:bg-blue-700">Content Strategy</a>
+                    <a href="{{ url_for('main.execute_content_plan') }}" class="px-3 py-2 rounded hover:bg-blue-700">Content Plan</a>
                     <a href="{{ url_for('main.content_generation') }}" class="px-3 py-2 rounded hover:bg-blue-700">Generate Content</a>
                     <a href="{{ url_for('main.image_generation') }}" class="px-3 py-2 rounded hover:bg-blue-700">Generate Image</a>
                     <a href="{{ url_for('main.schedule_content_route') }}" class="px-3 py-2 rounded hover:bg-blue-700">Schedule Content</a>
@@ -72,4 +74,4 @@
 
     {% block scripts %}{% endblock %}
 </body>
-</html> 
+</html>
