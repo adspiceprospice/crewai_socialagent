@@ -48,36 +48,58 @@ This document outlines the changes made to improve the social media reactions ch
 10. **src/web_ui/templates/base.html**
     - Added new navigation items and improved UI with Font Awesome icons
 
-## Integration Instructions
+## Running the Updated Application
 
-1. The files that were directly modified should already be updated in your repository.
-
-2. For the `routes.py` file, since it's quite large, we created a separate file (`routes_update.py`) with the improved publish function. You should replace the existing `publish_post` function in `routes.py` with the one from `routes_update.py`.
-
-3. Add these routes to your `routes.py` file:
-   ```python
-   @main.route('/manual-check-comments', methods=['GET', 'POST'])
-   def manual_check_comments():
-       # Implementation in routes.py file
-   
-   @main.route('/view-comments/<platform>/<post_id>')
-   def view_comments(platform, post_id):
-       # Implementation in routes.py file
+1. Make sure you have all the required dependencies installed:
+   ```bash
+   pip install -r requirements.txt
    ```
 
-4. Import the newly created helper modules:
-   ```python
-   from src.web_ui.publish_helpers import publish_scheduled_post
-   from src.config.api_helper import normalize_post_response
+2. Set up your environment variables in a `.env` file:
+   ```
+   OPENAI_API_KEY=your_key_here
+   GEMINI_API_KEY=your_key_here
+   LINKEDIN_ACCESS_TOKEN=your_token_here
+   TWITTER_API_KEY=your_key_here
+   TWITTER_API_SECRET=your_secret_here
+   TWITTER_ACCESS_TOKEN=your_token_here
+   TWITTER_ACCESS_TOKEN_SECRET=your_token_secret_here
    ```
 
-## Testing
+3. Run the application:
+   ```bash
+   python run.py
+   ```
 
-After making these changes:
+4. Access the web interface at http://localhost:5001
 
-1. Create and schedule content for both LinkedIn and X/Twitter
-2. Test publishing posts from the schedule page
-3. Test manual comment checking using the new interface
-4. Verify that platform post IDs are correctly recorded in the schedule
+## Testing the Social Media Reactions Checker
 
-These changes ensure that the system properly handles social media reactions and maintains consistency between different platforms.
+1. Schedule content for both LinkedIn and X/Twitter using the scheduling page.
+
+2. Wait for the scheduled time or use the "Publish Now" option to publish immediately.
+
+3. Once a post is published, the post ID will be tracked in the system.
+
+4. To check for comments on a post:
+   - Go to the "Respond to Comments" page
+   - Use the "Manually Check for Comments" button
+   - Enter the platform and post ID
+   - Check for comments
+
+5. Alternatively, start the monitor process which will automatically check for comments:
+   - Click "Start Monitor" in the UI
+   - The monitor will periodically check for new comments on published posts
+   - When comments are found, it will generate responses
+
+## Troubleshooting
+
+If you encounter any issues:
+
+1. Check the log files (`monitor.log` and `scheduler.log`)
+2. Make sure all API keys are correct in your `.env` file
+3. Verify that the scheduler and monitor processes are running (you can see this in the UI)
+4. If posts are not showing as published, check the response from the LinkedIn or Twitter API
+5. For errors in response generation, check the OpenAI API key and connectivity
+
+The changes made should ensure more robust operation of the system and better handling of post IDs between different platforms.
